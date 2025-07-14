@@ -1,0 +1,259 @@
+{
+ "actions": [],
+ "autoname": "autoincrement",
+ "creation": "2024-05-08 23:42:05.222777",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "status",
+  "amount",
+  "column_break_mntn",
+  "type",
+  "order_id",
+  "currency",
+  "subscription_details_section",
+  "subscription",
+  "customer_id",
+  "column_break_ubam",
+  "invoice_id",
+  "payment_section",
+  "payment_id",
+  "fee",
+  "tax",
+  "column_break_sqkm",
+  "customer_email",
+  "method",
+  "contact",
+  "refund_details_section",
+  "refund_id",
+  "section_break_lsxh",
+  "ref_dt",
+  "column_break_dggw",
+  "ref_dn",
+  "meta_section",
+  "meta_data"
+ ],
+ "fields": [
+  {
+   "default": "Pending",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Pending\nFailed\nPaid\nRefund in Progress\nRefunded",
+   "read_only": 1,
+   "sort_options": 1
+  },
+  {
+   "fieldname": "order_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Order ID",
+   "read_only": 1,
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "column_break_mntn",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Amount",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "payment_section",
+   "fieldtype": "Section Break",
+   "label": "Payment"
+  },
+  {
+   "fieldname": "payment_id",
+   "fieldtype": "Data",
+   "label": "Payment ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "meta_section",
+   "fieldtype": "Section Break",
+   "label": "Meta"
+  },
+  {
+   "default": "{}",
+   "fieldname": "meta_data",
+   "fieldtype": "Code",
+   "label": "Meta Data",
+   "options": "JSON",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_sqkm",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "customer_email",
+   "fieldtype": "Data",
+   "label": "Customer Email",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:Boolean(doc.payment_id)",
+   "fieldname": "fee",
+   "fieldtype": "Currency",
+   "label": "Fee",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "method",
+   "fieldtype": "Data",
+   "label": "Method",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:Boolean(doc.payment_id)",
+   "fieldname": "tax",
+   "fieldtype": "Currency",
+   "label": "Tax",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "contact",
+   "fieldtype": "Data",
+   "label": "Contact",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_lsxh",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "ref_dt",
+   "fieldtype": "Link",
+   "label": "Reference DocType",
+   "options": "DocType",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_dggw",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "ref_dn",
+   "fieldtype": "Dynamic Link",
+   "label": "Reference DocName",
+   "options": "ref_dt",
+   "read_only": 1
+  },
+  {
+   "fieldname": "refund_details_section",
+   "fieldtype": "Section Break",
+   "label": "Refund Details"
+  },
+  {
+   "fieldname": "refund_id",
+   "fieldtype": "Data",
+   "label": "Refund ID",
+   "read_only": 1
+  },
+  {
+   "default": "Standalone",
+   "fieldname": "type",
+   "fieldtype": "Select",
+   "label": "Type",
+   "options": "Standalone\nPayment Link\nSubscription",
+   "read_only": 1
+  },
+  {
+   "fieldname": "subscription_details_section",
+   "fieldtype": "Section Break",
+   "label": "Subscription Details"
+  },
+  {
+   "fieldname": "invoice_id",
+   "fieldtype": "Data",
+   "label": "Invoice ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "subscription",
+   "fieldtype": "Link",
+   "label": "Subscription",
+   "options": "Razorpay Subscription",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_ubam",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "customer_id",
+   "fieldtype": "Data",
+   "label": "Customer ID",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2024-06-26 21:33:18.368146",
+ "modified_by": "Administrator",
+ "module": "Razorpay Integration",
+ "name": "Razorpay Order",
+ "naming_rule": "Autoincrement",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "show_title_field_in_link": 1,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [
+  {
+   "color": "Orange",
+   "title": "Pending"
+  },
+  {
+   "color": "Red",
+   "title": "Failed"
+  },
+  {
+   "color": "Green",
+   "title": "Paid"
+  },
+  {
+   "color": "Purple",
+   "title": "Refunded"
+  },
+  {
+   "color": "Pink",
+   "title": "Refund Pending"
+  }
+ ],
+ "title_field": "order_id",
+ "track_changes": 1,
+ "track_seen": 1
+}
