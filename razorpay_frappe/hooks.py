@@ -19,10 +19,7 @@ scheduler_events = {
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/razorpay_frappe/css/razorpay_frappe.css"
-app_include_js = [
-    "/assets/razorpay_frappe/js/quotation_payment_link.js",
-    "/assets/razorpay_frappe/js/razorpay_payment_link_common.js"
-]
+# app_include_js = "/assets/razorpay_frappe/js/razorpay_frappe.js"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/razorpay_frappe/css/razorpay_frappe.css"
@@ -70,15 +67,16 @@ app_include_js = [
 # ----------
 
 # add methods and filters to jinja environment
-jinja = {
-	"methods": "razorpay_frappe.razorpay_integration.jinja_functions"
-}
+# jinja = {
+# 	"methods": "razorpay_frappe.utils.jinja_methods",
+# 	"filters": "razorpay_frappe.utils.jinja_filters"
+# }
 
 # Installation
 # ------------
 
 # before_install = "razorpay_frappe.install.before_install"
-after_install = "razorpay_frappe.razorpay_integration.install.after_install"
+# after_install = "razorpay_frappe.install.after_install"
 
 # Uninstallation
 # ------------
@@ -132,16 +130,13 @@ after_install = "razorpay_frappe.razorpay_integration.install.after_install"
 # ---------------
 # Hook on document methods and events
 
-doc_events = {
-	"Quotation": {
-		"on_submit": "razorpay_frappe.razorpay_integration.quotation_payment_link.on_submit",
-		"on_amend": "razorpay_frappe.razorpay_integration.document_events.on_quotation_amend"
-	},
-	"Sales Order": {
-		"on_submit": "razorpay_frappe.razorpay_integration.document_events.on_sales_order_submit",
-		"on_amend": "razorpay_frappe.razorpay_integration.document_events.on_sales_order_amend"
-	}
-}
+# doc_events = {
+# 	"*": {
+# 		"on_update": "method",
+# 		"on_cancel": "method",
+# 		"on_trash": "method"
+# 	}
+# }
 
 # Scheduled Tasks
 # ---------------

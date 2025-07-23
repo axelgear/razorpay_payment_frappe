@@ -5,7 +5,7 @@
  "creation": "2024-06-13 14:28:35.724040",
  "doctype": "DocType",
  "engine": "InnoDB",
-   "field_order": [
+ "field_order": [
   "amount",
   "currency",
   "id",
@@ -15,9 +15,6 @@
   "callback_url",
   "short_url",
   "expire_by",
-  "reference_section",
-  "reference_doctype",
-  "reference_docname",
   "customer_details_section",
   "customer_name",
   "customer_contact",
@@ -126,25 +123,6 @@
    "fieldtype": "Date",
    "label": "Expire By",
    "set_only_once": 1
-  },
-  {
-   "fieldname": "reference_section",
-   "fieldtype": "Section Break",
-   "label": "Reference"
-  },
-  {
-   "fieldname": "reference_doctype",
-   "fieldtype": "Link",
-   "label": "Reference DocType",
-   "options": "DocType",
-   "read_only": 1
-  },
-  {
-   "fieldname": "reference_docname",
-   "fieldtype": "Dynamic Link",
-   "label": "Reference Document",
-   "options": "reference_doctype",
-   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
