@@ -63,36 +63,44 @@ def create_custom_fields():
 
 
 def add_payment_link_to_print_format():
-	"""Add payment link field to print format if not exists"""
-	
-	# Check if field exists in Quotation print format
-	quotation_print_format = frappe.db.get_value("Print Format", "Quotation")
-	if quotation_print_format:
-		format_doc = frappe.get_doc("Print Format", "Quotation")
-		field_exists = any(field.fieldname == "payment_link" for field in format_doc.fields)
-		
-		if not field_exists:
-			format_doc.append("fields", {
-				"fieldname": "payment_link",
-				"label": "Payment Link",
-				"fieldtype": "Data",
-				"hidden": 1
-			})
-			format_doc.save()
-			frappe.msgprint("Added payment_link field to Quotation print format")
-	
-	# Check if field exists in Sales Order print format
-	sales_order_print_format = frappe.db.get_value("Print Format", "Sales Order")
-	if sales_order_print_format:
-		format_doc = frappe.get_doc("Print Format", "Sales Order")
-		field_exists = any(field.fieldname == "payment_link" for field in format_doc.fields)
-		
-		if not field_exists:
-			format_doc.append("fields", {
-				"fieldname": "payment_link",
-				"label": "Payment Link",
-				"fieldtype": "Data",
-				"hidden": 1
-			})
-			format_doc.save()
-			frappe.msgprint("Added payment_link field to Sales Order print format") 
+    """Safely attempt to add the payment_link column to standard Quotation and Sales Order print formats.
+    
+    In Frappe v15 the Print Format DocType structure changed and the legacy `fields` child
+    table is no longer present. Attempting to access it raises an `AttributeError`, which
+    currently breaks the installation of the app. Until a version-specific implementation
+    is added, gracefully skip this step if the expected attribute is missing so that the
+    rest of the installation can complete successfully.
+    """
+    
+    # Fetch standard print formats for Quotation and Sales Order (if any)
+    for doctype in ("Quotation", "Sales Order"):
+        pf_name = frappe.db.get_value("Print Format", {"doc_type": doctype, "standard": "Yes"})
+        if not pf_name:
+            # No standard print format found – nothing to update
+            continue
+
+        format_doc = frappe.get_doc("Print Format", pf_name)
+
+        # Newer Frappe versions don't expose a `fields` child table. Exit early if not found.
+        if not hasattr(format_doc, "fields") or format_doc.fields is None:
+            # Skip silently; log for reference
+            frappe.logger().debug(
+                "[razorpay_frappe] Skipping payment_link field injection for Print Format %s – incompatible structure",
+                pf_name,
+            )
+            continue
+
+        # Check if the field already exists
+        field_exists = any(getattr(field, "fieldname", None) == "payment_link" for field in format_doc.fields)
+        if field_exists:
+            continue
+
+        # Append a hidden data field so the link can be rendered if desired
+        format_doc.append("fields", {
+            "fieldname": "payment_link",
+            "label": "Payment Link",
+            "fieldtype": "Data",
+            "hidden": 1,
+        })
+        format_doc.save()
+        frappe.msgprint(f"Added payment_link field to {doctype} print format ({pf_name})") 
