@@ -33,11 +33,40 @@ class RazorpayPaymentLink(Document):
 	# end: auto-generated types
 
 	def before_insert(self):
+		# If expiry not provided, default to settings value
+		if not self.expire_by:
+			settings = frappe.get_cached_doc("Razorpay Settings")
+			from frappe.utils import add_days, nowdate
+			default_expiry = getattr(settings, "default_expiry_days", 7)
+			self.expire_by = add_days(nowdate(), int(default_expiry))
+
+		# Ensure associations (customer etc) are set if quotation provided
+		if not self.customer and self.quotation:
+			quotation = frappe.get_doc("Quotation", self.quotation)
+			self.customer = quotation.customer
+			self.customer_name = quotation.customer_name
+			self.customer_email = quotation.contact_email or quotation.email_id
+			self.customer_contact = quotation.contact_mobile or quotation.contact_phone
+
 		payment_link = self.create_payment_link_on_razorpay()
 
+		# Store returned identifiers
 		self.id = payment_link["id"]
 		self.short_url = payment_link["short_url"]
 		self.status = frappe.unscrub(payment_link["status"])
+
+		# Generate QR code image & attach
+		try:
+			from razorpay_frappe.utils import generate_qr_code
+			from frappe.utils.file_manager import save_file
+			png_bytes = generate_qr_code(self.short_url)
+			file_doc = save_file(
+				f"PaymentLinkQR-{self.name}.png", png_bytes, self.doctype, self.name, is_private=1
+			)
+			self.qr_code = file_doc.file_url
+		except Exception:
+			# QR generation failures shouldn't block link creation
+			frappe.log_error(frappe.get_traceback(), "QR code generation failed for Payment Link")
 
 	def create_payment_link_on_razorpay(self):
 		client = get_razorpay_client()

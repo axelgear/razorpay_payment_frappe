@@ -19,7 +19,10 @@ scheduler_events = {
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/razorpay_frappe/css/razorpay_frappe.css"
-# app_include_js = "/assets/razorpay_frappe/js/razorpay_frappe.js"
+app_include_js = [
+    "/assets/razorpay_frappe/js/quotation_payment_link.js",
+    "/assets/razorpay_frappe/js/project_form.js"
+]
 
 # include js, css files in header of web template
 # web_include_css = "/assets/razorpay_frappe/css/razorpay_frappe.css"
@@ -130,13 +133,15 @@ scheduler_events = {
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+doc_events = {
+    "Customer": {
+        "after_insert": "razorpay_frappe.utils.generate_customer_uuid",
+    },
+    "Quotation": {
+        "on_submit": "razorpay_frappe.quotation_events.handle_quotation_submit",
+        "on_update_after_submit": "razorpay_frappe.quotation_events.handle_quotation_update",
+    },
+ }
 
 # Scheduled Tasks
 # ---------------

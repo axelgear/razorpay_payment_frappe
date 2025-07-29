@@ -7,6 +7,7 @@
  "engine": "InnoDB",
  "field_order": [
   "amount",
+  "amount_paid",
   "currency",
   "id",
   "status",
@@ -16,10 +17,18 @@
   "short_url",
   "expire_by",
   "customer_details_section",
+  "customer",
   "customer_name",
   "customer_contact",
   "column_break_nmes",
-  "customer_email"
+  "customer_email",
+  "quotation",
+  "sales_order",
+  "project",
+  "invoice",
+  "payment_entry",
+  "payment_slip",
+  "qr_code"
  ],
  "fields": [
   {
@@ -53,6 +62,15 @@
    "options": "currency",
    "reqd": 1,
    "set_only_once": 1
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "fieldname": "amount_paid",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Amount Paid",
+   "options": "currency",
+   "read_only": 1
   },
   {
    "allow_in_quick_entry": 1,
@@ -95,6 +113,12 @@
    "label": "Customer Details"
   },
   {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "options": "Customer",
+   "label": "Customer"
+  },
+  {
    "fieldname": "customer_name",
    "fieldtype": "Data",
    "label": "Customer Name",
@@ -116,6 +140,48 @@
    "label": "Customer Email",
    "options": "Email",
    "set_only_once": 1
+  },
+  {
+   "fieldname": "quotation",
+   "fieldtype": "Link",
+   "options": "Quotation",
+   "label": "Quotation"
+  },
+  {
+   "fieldname": "sales_order",
+   "fieldtype": "Link",
+   "options": "Sales Order",
+   "label": "Sales Order"
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "options": "Project",
+   "label": "Project"
+  },
+  {
+   "fieldname": "invoice",
+   "fieldtype": "Link",
+   "options": "Sales Invoice",
+   "label": "Invoice"
+  },
+  {
+   "fieldname": "payment_entry",
+   "fieldtype": "Link",
+   "options": "Payment Entry",
+   "label": "Payment Entry"
+  },
+  {
+   "fieldname": "payment_slip",
+   "fieldtype": "Attach",
+   "label": "Payment Slip",
+   "read_only": 1
+  },
+  {
+   "fieldname": "qr_code",
+   "fieldtype": "Attach Image",
+   "label": "QR Code",
+   "read_only": 1
   },
   {
    "allow_in_quick_entry": 1,

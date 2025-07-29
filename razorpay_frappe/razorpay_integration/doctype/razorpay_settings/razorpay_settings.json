@@ -5,31 +5,81 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "sandbox_mode",
+  "column_break_sandbox",
+  "sandbox_key_id",
+  "sandbox_key_secret",
+  "column_break_prod",
   "key_id",
-  "webhook_secret",
-  "column_break_inxs",
   "key_secret",
+  "column_break_misc",
+  "webhook_secret",
+  "default_expiry_days",
+  "allow_partial_payments",
+  "virtual_account_prefix",
   "allow_guest_checkout"
  ],
  "fields": [
   {
-   "fieldname": "key_id",
-   "fieldtype": "Data",
-   "label": "Key ID"
+   "fieldname": "sandbox_mode",
+   "fieldtype": "Check",
+   "label": "Enable Sandbox Mode"
   },
   {
-   "fieldname": "column_break_inxs",
+   "fieldname": "column_break_sandbox",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sandbox_key_id",
+   "fieldtype": "Data",
+   "label": "Sandbox Key ID"
+  },
+  {
+   "fieldname": "sandbox_key_secret",
+   "fieldtype": "Password",
+   "label": "Sandbox Key Secret"
+  },
+  {
+   "fieldname": "column_break_prod",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "key_id",
+   "fieldtype": "Data",
+   "label": "Production Key ID"
   },
   {
    "fieldname": "key_secret",
    "fieldtype": "Password",
-   "label": "Key Secret"
+   "label": "Production Key Secret"
+  },
+  {
+   "fieldname": "column_break_misc",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "webhook_secret",
    "fieldtype": "Password",
    "label": "Webhook Secret"
+  },
+  {
+   "default": "7",
+   "fieldname": "default_expiry_days",
+   "fieldtype": "Int",
+   "label": "Default Expiry Days"
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_partial_payments",
+   "fieldtype": "Check",
+   "label": "Allow Partial Payments"
+  },
+  {
+   "fieldname": "virtual_account_prefix",
+   "label": "Virtual Account Prefix",
+   "fieldtype": "Data",
+   "default": "VA-",
+   "description": "Prefix for virtual account numbers."
   },
   {
    "default": "0",

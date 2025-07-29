@@ -1,0 +1,142 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-01-27 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "enabled",
+  "company_id",
+  "bot_unique_name",
+  "bot_token",
+  "section_break_channels",
+  "project_channel_unique",
+  "quote_channel_unique",
+  "notification_channel_unique",
+  "design_channel_unique",
+  "accounts_channel_unique",
+  "purchase_channel_unique",
+  "sales_channel_unique",
+  "installation_channel_unique",
+  "production_channel_unique",
+  "planning_channel_unique"
+ ],
+ "fields": [
+  {
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled",
+   "default": 0
+  },
+  {
+   "fieldname": "company_id",
+   "fieldtype": "Data",
+   "label": "Zoho Company ID",
+   "description": "Your Zoho Company ID (e.g., 673651768)"
+  },
+  {
+   "fieldname": "bot_unique_name",
+   "fieldtype": "Data",
+   "label": "Bot Unique Name",
+   "description": "Your bot's unique name (e.g., elina)"
+  },
+  {
+   "fieldname": "bot_token",
+   "fieldtype": "Password",
+   "label": "Bot OAuth/Authtoken",
+   "description": "Your bot's webhook token"
+  },
+  {
+   "fieldname": "section_break_channels",
+   "fieldtype": "Section Break",
+   "label": "Channel Configuration"
+  },
+  {
+   "fieldname": "project_channel_unique",
+   "fieldtype": "Data",
+   "label": "Project Channel Unique Name",
+   "description": "Unique name for Project channel (e.g., projectteamerp)"
+  },
+  {
+   "fieldname": "quote_channel_unique",
+   "fieldtype": "Data",
+   "label": "Quote Channel Unique Name",
+   "description": "Unique name for Quote channel"
+  },
+  {
+   "fieldname": "notification_channel_unique",
+   "fieldtype": "Data",
+   "label": "Notification Channel Unique Name",
+   "description": "Unique name for Notification channel"
+  },
+  {
+   "fieldname": "design_channel_unique",
+   "fieldtype": "Data",
+   "label": "Design Channel Unique Name",
+   "description": "Unique name for Design channel"
+  },
+  {
+   "fieldname": "accounts_channel_unique",
+   "fieldtype": "Data",
+   "label": "Accounts Channel Unique Name",
+   "description": "Unique name for Accounts channel"
+  },
+  {
+   "fieldname": "purchase_channel_unique",
+   "fieldtype": "Data",
+   "label": "Purchase Channel Unique Name",
+   "description": "Unique name for Purchase channel"
+  },
+  {
+   "fieldname": "sales_channel_unique",
+   "fieldtype": "Data",
+   "label": "Sales Channel Unique Name",
+   "description": "Unique name for Sales channel"
+  },
+  {
+   "fieldname": "installation_channel_unique",
+   "fieldtype": "Data",
+   "label": "Installation Channel Unique Name",
+   "description": "Unique name for Installation channel"
+  },
+  {
+   "fieldname": "production_channel_unique",
+   "fieldtype": "Data",
+   "label": "Production Channel Unique Name",
+   "description": "Unique name for Production channel"
+  },
+  {
+   "fieldname": "planning_channel_unique",
+   "fieldtype": "Data",
+   "label": "Planning Channel Unique Name",
+   "description": "Unique name for Planning channel"
+  }
+ ],
+ "index_web_search_for": 1,
+ "links": [],
+ "modified": "2025-01-27 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Razorpay Integration",
+ "name": "ZohoCliq Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "track_views": 1,
+ "issingle": 1
+} 
