@@ -1,0 +1,368 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-01-27 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+   "field_order": [
+  "settlement_id",
+  "entity",
+  "amount",
+  "currency",
+  "status",
+  "created_at",
+  "updated_at",
+  "fee",
+  "tax",
+  "utr",
+  "settlement_date",
+  "on_hold",
+  "on_hold_until",
+  "description",
+  "notes",
+  "column_break_15",
+  "settlement_type",
+  "bank_account",
+  "ifsc_code",
+  "account_number",
+  "account_type",
+  "beneficiary_name",
+  "beneficiary_email",
+  "beneficiary_mobile",
+  "processed_at",
+  "cancelled_at",
+  "failure_reason",
+  "failure_code",
+  "bank_reference_number",
+  "bank_branch",
+  "bank_city",
+  "bank_state",
+  "bank_pincode",
+  "bank_country",
+  "bank_phone",
+  "bank_email",
+  "section_break_25",
+  "reconciliation_status",
+  "reconciled_at",
+  "reconciled_by",
+  "payment_entries",
+  "section_break_30",
+  "custom_fields"
+ ],
+ "fields": [
+  {
+   "fieldname": "settlement_id",
+   "fieldtype": "Data",
+   "label": "Settlement ID",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "entity",
+   "fieldtype": "Data",
+   "label": "Entity",
+   "read_only": 1
+  },
+  {
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "label": "Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "pending\nprocessing\nprocessed\nfailed\ncancelled",
+   "read_only": 1
+  },
+  {
+   "fieldname": "created_at",
+   "fieldtype": "Datetime",
+   "label": "Created At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "updated_at",
+   "fieldtype": "Datetime",
+   "label": "Updated At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "fee",
+   "fieldtype": "Currency",
+   "label": "Fee",
+   "read_only": 1
+  },
+  {
+   "fieldname": "tax",
+   "fieldtype": "Currency",
+   "label": "Tax",
+   "read_only": 1
+  },
+  {
+   "fieldname": "utr",
+   "fieldtype": "Data",
+   "label": "UTR",
+   "read_only": 1
+  },
+  {
+   "fieldname": "settlement_date",
+   "fieldtype": "Date",
+   "label": "Settlement Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "on_hold",
+   "fieldtype": "Check",
+   "label": "On Hold",
+   "read_only": 1
+  },
+  {
+   "fieldname": "on_hold_until",
+   "fieldtype": "Datetime",
+   "label": "On Hold Until",
+   "read_only": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Text",
+   "label": "Description",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Code",
+   "label": "Notes",
+   "options": "JSON",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_15",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "settlement_type",
+   "fieldtype": "Select",
+   "label": "Settlement Type",
+   "options": "regular\nondemand",
+   "read_only": 1
+  },
+  {
+   "fieldname": "bank_account",
+   "fieldtype": "Data",
+   "label": "Bank Account",
+   "read_only": 1
+  },
+  {
+   "fieldname": "ifsc_code",
+   "fieldtype": "Data",
+   "label": "IFSC Code",
+   "read_only": 1
+  },
+  {
+   "fieldname": "account_number",
+   "fieldtype": "Data",
+   "label": "Account Number",
+   "read_only": 1
+  },
+  {
+   "fieldname": "account_type",
+   "fieldtype": "Select",
+   "label": "Account Type",
+   "options": "savings\ncurrent",
+   "read_only": 1
+  },
+  {
+   "fieldname": "beneficiary_name",
+   "fieldtype": "Data",
+   "label": "Beneficiary Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "beneficiary_email",
+   "fieldtype": "Data",
+   "label": "Beneficiary Email",
+   "read_only": 1
+  },
+  {
+   "fieldname": "beneficiary_mobile",
+   "fieldtype": "Data",
+   "label": "Beneficiary Mobile",
+   "read_only": 1
+  },
+  {
+   "fieldname": "processed_at",
+   "fieldtype": "Datetime",
+   "label": "Processed At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cancelled_at",
+   "fieldtype": "Datetime",
+   "label": "Cancelled At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "failure_reason",
+   "fieldtype": "Text",
+   "label": "Failure Reason",
+   "read_only": 1
+  },
+  {
+   "fieldname": "failure_code",
+   "fieldtype": "Data",
+   "label": "Failure Code",
+   "read_only": 1
+  },
+  {
+   "fieldname": "bank_reference_number",
+   "fieldtype": "Data",
+   "label": "Bank Reference Number",
+   "read_only": 1
+  },
+  {
+   "fieldname": "bank_branch",
+   "fieldtype": "Data",
+   "label": "Bank Branch",
+   "read_only": 1
+  },
+  {
+   "fieldname": "bank_city",
+   "fieldtype": "Data",
+   "label": "Bank City",
+   "read_only": 1
+  },
+  {
+   "fieldname": "bank_state",
+   "fieldtype": "Data",
+   "label": "Bank State",
+   "read_only": 1
+  },
+  {
+   "fieldname": "bank_pincode",
+   "fieldtype": "Data",
+   "label": "Bank Pincode",
+   "read_only": 1
+  },
+  {
+   "fieldname": "bank_country",
+   "fieldtype": "Data",
+   "label": "Bank Country",
+   "read_only": 1
+  },
+  {
+   "fieldname": "bank_phone",
+   "fieldtype": "Data",
+   "label": "Bank Phone",
+   "read_only": 1
+  },
+  {
+   "fieldname": "bank_email",
+   "fieldtype": "Data",
+   "label": "Bank Email",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_25",
+   "fieldtype": "Section Break",
+   "label": "Reconciliation"
+  },
+  {
+   "fieldname": "reconciliation_status",
+   "fieldtype": "Select",
+   "label": "Reconciliation Status",
+   "options": "pending\nreconciled\nfailed",
+   "default": "pending"
+  },
+  {
+   "fieldname": "reconciled_at",
+   "fieldtype": "Datetime",
+   "label": "Reconciled At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reconciled_by",
+   "fieldtype": "Link",
+   "label": "Reconciled By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "payment_entries",
+   "fieldtype": "Table",
+   "label": "Payment Entries",
+   "options": "Razorpay Settlement Payment Entry"
+  },
+  {
+   "fieldname": "section_break_30",
+   "fieldtype": "Section Break",
+   "label": "Custom Fields"
+  },
+  {
+   "fieldname": "custom_fields",
+   "fieldtype": "Code",
+   "label": "Custom Fields",
+   "options": "JSON"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-01-27 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Razorpay Integration",
+ "name": "Razorpay Settlement",
+ "description": "Automatic settlements created by Razorpay when captured payments are settled to your bank account according to your settlement cycle. These settlements represent the transfer of funds from Razorpay to your registered bank account.",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "track_seen": 1,
+ "track_views": 1
+} 

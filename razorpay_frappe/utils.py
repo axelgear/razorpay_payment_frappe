@@ -4,6 +4,15 @@ from enum import StrEnum
 import frappe
 import razorpay
 from frappe.utils.password import get_decrypted_password
+from .zoho_templates import (
+	create_new_project_template,
+	create_status_update_template,
+	create_task_assignment_template,
+	create_meeting_schedule_template,
+	create_material_request_template,
+	create_thread_message_template,
+	create_quote_update_template,
+)
 
 
 class RazorpayPaymentWebhookEvents(StrEnum):
@@ -169,25 +178,43 @@ def send_zohocliq_message(webhook_url: str, message):
 			# Template object (dict)
 			payload = message
 		
+		# Check message length before sending
+		message_str = json.dumps(payload)
+		if len(message_str) > 4000:  # ZohoCliq has limits
+			frappe.log_error(f"ZohoCliq message too long ({len(message_str)} chars). Truncating.", "ZohoCliq Message Length")
+			# Truncate the message
+			if isinstance(message, dict) and "text" in message:
+				message["text"] = message["text"][:100] + "..."
+				payload = message
+		
 		resp = requests.post(
 			webhook_url,
 			data=json.dumps(payload),
 			headers={"Content-Type": "application/json"},
-			timeout=5,
+			timeout=10,  # Increased timeout
 		)
 		if resp.status_code not in (200, 201, 204):  # 204 is also success for ZohoCliq
-			# Use shorter error message to avoid length issues
+			# Log detailed error information and raise so caller can fallback
 			error_data = {
 				"url": webhook_url,
 				"status": resp.status_code,
-				"response": resp.text[:100] if resp.text else "",
-				"message": str(message)[:100] if len(str(message)) > 100 else str(message),
+				"response": resp.text[:200] if resp.text else "",
+				"message_length": len(json.dumps(payload)),
+				"message_preview": str(payload)[:200] if len(str(payload)) > 200 else str(payload),
 			}
 			frappe.log_error(error_data, "ZohoCliq Notification Failed")
+			raise Exception(f"ZohoCliq returned HTTP {resp.status_code}")
+		else:
+			frappe.logger().info(f"ZohoCliq message sent successfully to {webhook_url}")
 	except Exception as e:
-		# Use shorter error message to avoid length issues
-		error_msg = str(e)[:100] if len(str(e)) > 100 else str(e)
-		frappe.log_error(f"ZohoCliq Notification Failure: {error_msg}", "ZohoCliq Error")
+		# Log detailed error information
+		error_data = {
+			"url": webhook_url,
+			"error": str(e),
+			"message_type": type(message).__name__,
+			"message_length": len(str(message)) if message else 0,
+		}
+		frappe.log_error(error_data, "ZohoCliq Error")
 
 
 def post_to_zohocliq(message: str, channel: str):
@@ -222,7 +249,7 @@ def post_to_zohocliq(message: str, channel: str):
 		Please configure the following in ZohoCliq Settings:
 		- {channel} Channel Unique Name: Set to your ZohoCliq channel unique name
 		
-		Example: For Project channel, set 'Project Channel Unique Name' to 'projectteamerp'
+		Example: For Project channel, set 'Project Channel Unique Name' to 'project'
 		"""
 		frappe.throw(error_msg)
 
@@ -301,6 +328,16 @@ def create_virtual_account(
 		frappe.throw(f"Failed to create virtual account: {str(e)}")
 
 
+# -------------------- Customer UUID hook ------------------------
+
+import uuid
+
+def generate_customer_uuid(doc, method):
+	"""Ensure each Customer gets a stable UUID used as Razorpay customer_id."""
+	if not getattr(doc, "custom_razorpay_customer_id", None):
+		doc.custom_razorpay_customer_id = str(uuid.uuid4())
+		doc.db_set("custom_razorpay_customer_id", doc.custom_razorpay_customer_id, update_modified=False)
+
 # ------------------- QR Code helper -------------------
 
 
@@ -340,356 +377,324 @@ def generate_payment_slip(payment_doc):
 
 # Stubs for functions requested – flesh out later
 
-def regenerate_payment_link(*args, **kwargs):
-	"""Placeholder for regenerate payment link logic"""
-	frappe.throw("regenerate_payment_link not yet implemented")
+
+@frappe.whitelist()
+def check_quotation_custom_fields():
+    """Check Quotation custom fields"""
+    try:
+        fields = frappe.get_all('Custom Field', 
+            filters={'dt': 'Quotation', 'fieldname': ['like', 'razorpay%']}, 
+            fields=['fieldname', 'label', 'fieldtype'])
+        
+        return {
+            "success": True,
+            "fields": fields
+        }
+        
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
-def handle_payment_callback(*args, **kwargs):
-	frappe.throw("handle_payment_callback not yet implemented")
+def extract_original_quote_number(quotation_name: str) -> str:
+    """Extract the original quote number without revision numbers.
+    
+    Examples:
+    SAL-QTN-2025-00012 -> SAL-QTN-2025-00012
+    SAL-QTN-2025-00012-1 -> SAL-QTN-2025-00012
+    SAL-QTN-2025-00012-2 -> SAL-QTN-2025-00012
+    """
+    if not quotation_name:
+        return quotation_name
+    
+    # Split by '-' and check if the last part is a number
+    parts = quotation_name.split('-')
+    if len(parts) >= 4:
+        # Check if the last part is a number (revision)
+        try:
+            int(parts[-1])
+            # If it's a number, remove it to get the original quote
+            return '-'.join(parts[:-1])
+        except ValueError:
+            # If the last part is not a number, it's already the original quote
+            return quotation_name
+    
+    return quotation_name
 
 
-def handle_payment_link_callback(*args, **kwargs):
-	frappe.throw("handle_payment_link_callback not yet implemented")
+@frappe.whitelist()
+def create_payment_link_for_quotation(quotation_name: str, advanced_options: dict | None = None):
+    """Create a Razorpay payment link for the given quotation.
+
+    Returns the response from Razorpay API.
+    """
+    try:
+        quotation = frappe.get_doc("Quotation", quotation_name)
+        settings = frappe.get_single("Razorpay Settings")
+
+        client = get_razorpay_client()
+
+        amount_rupees = quotation.grand_total
+        amount_paise = int(amount_rupees * 100)
+
+        payload = {
+            "amount": amount_paise,
+            "currency": quotation.currency or "INR",
+            "accept_partial": bool(settings.allow_partial_payments),
+            "description": f"Payment for Quotation {quotation.name}{' (Revised)' if quotation.amended_from else ''}",
+            "reference_id": f"{quotation.name}",
+            "customer": {
+                "name": quotation.customer_name,
+                "email": quotation.contact_email or "",
+                "contact": quotation.contact_mobile or "",
+            },
+            "notify": {"sms": True, "email": True},
+            "reminder_enable": True,
+            "notes": {
+                "quotation_id": quotation.name,
+                "customer": quotation.customer_name,
+                "is_revision": bool(quotation.amended_from),
+                "revised_from": quotation.amended_from if quotation.amended_from else None,
+                "original_quote": extract_original_quote_number(quotation.name)
+            }
+        }
+
+        # Expiry
+        if quotation.valid_till:
+            payload["expire_by"] = int(frappe.utils.get_timestamp(quotation.valid_till))
+        else:
+            # Set default expiry to 30 days from now
+            from datetime import datetime, time
+            from frappe.utils import getdate, add_days
+            
+            expiry_date = add_days(getdate(), 30)
+            expiry_datetime = datetime.combine(expiry_date, time(23, 59, 59))
+            payload["expire_by"] = int(expiry_datetime.timestamp())
+
+        # Merge advanced options
+        if advanced_options:
+            payload.update({k: v for k, v in advanced_options.items() if v is not None})
+
+        # Create payment link
+        response = client.payment_link.create(payload)
+        
+        # Debug: Log the response (shorter version)
+        frappe.log_error(f"Payment link created: {response.get('id')} - {response.get('short_url')}", "Razorpay Debug")
+
+        # Create Payment Link DocType entry
+        pl_doc = frappe.new_doc("Razorpay Payment Link")
+        # Flag to indicate link already created, so DocType shouldn't hit API again
+        pl_doc.flags.link_already_created = True
+        pl_doc.id = response.get("id")
+        pl_doc.short_url = response.get("short_url")
+        pl_doc.status = "Created"  # Use proper case
+        pl_doc.amount = amount_rupees
+        pl_doc.currency = quotation.currency
+        pl_doc.quotation = quotation.name
+        pl_doc.customer = quotation.customer_name
+        pl_doc.expire_by = frappe.utils.getdate(response.get("expire_by")) if response.get("expire_by") else frappe.utils.add_days(frappe.utils.getdate(), 30)
+        pl_doc.insert(ignore_permissions=True)
+        
+        # Update the payment link ID in the document
+        pl_doc.db_set("payment_link_id", response.get("id"))
+
+        # Attach QR code to Payment Link and Quotation
+        qr_bytes = generate_qr_code(response.get("short_url"))
+        if qr_bytes:
+            try:
+                # Use payment link name for QR filename
+                fname = f"QR-{pl_doc.name}.png"
+                
+                # Create file document manually with public access
+                file_doc = frappe.get_doc({
+                    "doctype": "File",
+                    "file_name": fname,
+                    "content": qr_bytes,
+                    "is_private": 0,  # Make it public
+                    "attached_to_doctype": pl_doc.doctype,  # Attach to Razorpay Payment Link
+                    "attached_to_name": pl_doc.name,  # Attach to the payment link document itself
+                })
+                file_doc.save()
+                
+                # Update both quotation and payment link with QR code URL
+                quotation.razorpay_qr_code = file_doc.file_url
+                pl_doc.qr = file_doc.file_url
+            except Exception as qr_error:
+                # Use shorter error message to avoid length issues
+                error_msg = str(qr_error)[:100] if len(str(qr_error)) > 100 else str(qr_error)
+                frappe.log_error(f"QR attachment failed for {quotation.name}: {error_msg}", "Razorpay QR Error")
+
+        # Update Quotation fields
+        quotation.db_set("razorpay_payment_url", response.get("short_url"))
+        quotation.db_set("razorpay_payment_link", pl_doc.name)  # Link to the Payment Link DocType
+        quotation.db_set("razorpay_expiry", pl_doc.expire_by)
+        
+        # Update QR code if generated
+        if qr_bytes and hasattr(quotation, 'razorpay_qr_code'):
+            quotation.db_set("razorpay_qr_code", quotation.razorpay_qr_code)
+
+        return response
+    except Exception as e:
+        # Use shorter error message to avoid CharacterLengthExceededError
+        error_msg = str(e)[:100] if len(str(e)) > 100 else str(e)
+        frappe.log_error(f"Payment link creation failed for {quotation_name}: {error_msg}")
+        return {"success": False, "error": str(e)}
 
 
-def handle_virtual_account_payment(*args, **kwargs):
-	frappe.throw("handle_virtual_account_payment not yet implemented")
 
 
-def process_refund(*args, **kwargs):
-	frappe.throw("process_refund not yet implemented")
+
+@frappe.whitelist()
+def check_razorpay_settings_fields():
+    """Check what fields are in Razorpay Settings"""
+    try:
+        settings = frappe.get_single("Razorpay Settings")
+        
+        # Get all field values
+        field_values = {}
+        for field in settings.meta.fields:
+            if field.fieldtype == "Password":
+                field_values[field.fieldname] = "***HIDDEN***"
+            else:
+                field_values[field.fieldname] = getattr(settings, field.fieldname, None)
+        
+        return {
+            "success": True,
+            "fields": field_values
+        }
+        
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
-def fetch_refunds(*args, **kwargs):
-	frappe.throw("fetch_refunds not yet implemented")
+@frappe.whitelist()
+def fetch_payment_link_details(payment_link_id: str):
+    """Fetch payment details for a payment link"""
+    try:
+        client = get_razorpay_client()
+        
+        # Fetch payment link details from Razorpay
+        payment_link = client.payment_link.fetch(payment_link_id)
+        
+        # Get payment details
+        payments = []
+        if payment_link.get("payments"):
+            for payment in payment_link["payments"]:
+                payment_details = client.payment.fetch(payment["id"])
+                payments.append({
+                    "payment_id": payment["id"],
+                    "amount": payment["amount"] / 100,  # Convert from paise to rupees
+                    "currency": payment["currency"],
+                    "status": payment["status"],
+                    "method": payment["method"],
+                    "created_at": payment["created_at"],
+                    "captured_at": payment.get("captured_at"),
+                    "description": payment.get("description", ""),
+                    "email": payment.get("email", ""),
+                    "contact": payment.get("contact", ""),
+                    "notes": payment.get("notes", {})
+                })
+        
+        return {
+            "success": True,
+            "payment_link": {
+                "id": payment_link["id"],
+                "short_url": payment_link["short_url"],
+                "amount": payment_link["amount"] / 100,
+                "amount_paid": payment_link["amount_paid"] / 100,
+                "currency": payment_link["currency"],
+                "status": payment_link["status"],
+                "created_at": payment_link["created_at"],
+                "expire_by": payment_link.get("expire_by"),
+                "expired_at": payment_link.get("expired_at"),
+                "cancelled_at": payment_link.get("cancelled_at"),
+                "description": payment_link.get("description", ""),
+                "reference_id": payment_link.get("reference_id", ""),
+                "accept_partial": payment_link.get("accept_partial", False),
+                "first_min_partial_amount": payment_link.get("first_min_partial_amount", 0) / 100 if payment_link.get("first_min_partial_amount") else 0
+            },
+            "payments": payments
+        }
+        
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
-def fetch_refund(*args, **kwargs):
-	frappe.throw("fetch_refund not yet implemented")
+@frappe.whitelist()
+def update_payment_link_status(payment_link_name: str):
+    """Update payment link status and track payments"""
+    try:
+        # Get the payment link document
+        pl_doc = frappe.get_doc("Razorpay Payment Link", payment_link_name)
+        
+        # Fetch latest details from Razorpay
+        client = get_razorpay_client()
+        payment_link = client.payment_link.fetch(pl_doc.id)
+        
+        # Update status
+        pl_doc.status = payment_link["status"]
+        
+        # Update amount paid
+        if payment_link.get("amount_paid"):
+            pl_doc.amount_paid = payment_link["amount_paid"] / 100
+        
+        # Save the document
+        pl_doc.save()
+        
+        return {
+            "success": True,
+            "status": payment_link["status"],
+            "amount_paid": payment_link.get("amount_paid", 0) / 100,
+            "total_amount": payment_link["amount"] / 100
+        }
+        
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
-def update_refund(*args, **kwargs):
-	frappe.throw("update_refund not yet implemented")
+@frappe.whitelist()
+def debug_payment_link_status():
+    """Debug payment link status for a quotation"""
+    try:
+        quotation_name = "SAL-QTN-2025-00010-5"
+        quotation = frappe.get_doc("Quotation", quotation_name)
+        
+        return {
+            "success": True,
+            "quotation_name": quotation.name,
+            "razorpay_payment_link": quotation.razorpay_payment_link,
+            "razorpay_payment_url": quotation.razorpay_payment_url,
+            "razorpay_qr_code": quotation.razorpay_qr_code,
+            "razorpay_expiry": quotation.razorpay_expiry,
+            "grand_total": quotation.grand_total,
+            "valid_till": quotation.valid_till,
+        }
+        
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
-def fetch_settlement(*args, **kwargs):
-	frappe.throw("fetch_settlement not yet implemented")
-
-
-def fetch_all_settlements(*args, **kwargs):
-	frappe.throw("fetch_all_settlements not yet implemented")
-
-
-def settlement_recon(*args, **kwargs):
-	frappe.throw("settlement_recon not yet implemented")
-
-
-def create_ondemand_settlement(*args, **kwargs):
-	frappe.throw("create_ondemand_settlement not yet implemented")
-
-
-def fetch_all_ondemand_settlements(*args, **kwargs):
-	frappe.throw("fetch_all_ondemand_settlements not yet implemented")
-
-
-def fetch_ondemand_settlement(*args, **kwargs):
-	frappe.throw("fetch_ondemand_settlement not yet implemented")
-
-
-def create_payment_link(*args, **kwargs):
-	frappe.throw("create_payment_link not yet implemented")
-
-
-def update_payment_link_on_revision(*args, **kwargs):
-	frappe.throw("update_payment_link_on_revision not yet implemented")
-
-
-# -------------------- Customer UUID hook ------------------------
-
-import uuid
-
-
-def generate_customer_uuid(doc, method):
-	"""Ensure each Customer gets a stable UUID used as Razorpay customer_id."""
-	if not getattr(doc, "custom_razorpay_customer_id", None):
-		doc.custom_razorpay_customer_id = str(uuid.uuid4())
-		doc.db_set("custom_razorpay_customer_id", doc.custom_razorpay_customer_id, update_modified=False)
-
-# ------------- Message Templates -----------------
-
-def create_new_project_template(project_id: str, assigned_to: str, customer_name: str, erp_link: str = None):
-	"""Create a new project notification with thread creation capability."""
-	base_url = frappe.utils.get_url()
-	if not erp_link:
-		erp_link = f"{base_url}/app/project/{project_id}"
-	
-	# Get the actual project name from the database
-	project_name = project_id  # Default to project_id if name not found
-	try:
-		project_doc = frappe.get_doc("Project", project_id)
-		project_name = project_doc.project_name or project_doc.name
-	except:
-		# If project not found, use project_id as fallback
-		project_name = project_id
-	
-	# Handle case where assigned_to is not provided
-	mention_text = f"{{@{assigned_to}}}" if assigned_to else ""
-	
-	return {
-		"card": {
-			"title": f"NEW PROJECT",
-			"theme": "modern-inline",
-		},
-		"text": f"**{project_name}** {mention_text}",
-		"slides": [
-			{
-				"type": "table",
-				"title": "Project Summary",
-				"data": {
-					"headers": ["Field", "Value"],
-					"rows": [
-						{"Field": "Project ID", "Value": project_id},
-						{"Field": "Project Name", "Value": project_name},
-						{"Field": "Customer", "Value": customer_name},
-					] + ([{"Field": "Assigned To", "Value": assigned_to}] if assigned_to else [])
-				}
-			}
-		],
-		"buttons": [
-			{
-				"label": "View Project",
-				"type": "+",
-				"action": {
-					"type": "open.url",
-					"data": {"web": erp_link}
-				}
-			}
-		],
-		"sync_message": True
-	}
-
-
-def create_status_update_template(title: str, status: str, details: dict, assigned_to: str = None, erp_link: str = None):
-	"""Create a status update notification."""
-	mention = f"{{@{assigned_to}}}" if assigned_to and assigned_to.strip() else ""
-	
-	message = {
-		"card": {
-			"title": title.upper(),
-			"theme": "modern-inline",
-		},
-		"text": f"**{title}** {mention}",
-		"slides": [
-			{
-				"type": "table",
-				"title": "Status Details",
-				"data": {
-					"headers": ["Field", "Value"],
-					"rows": [{"Field": k, "Value": v} for k, v in details.items()]
-				}
-			}
-		]
-	}
-	
-	if erp_link:
-		message["buttons"] = [
-			{
-				"label": "View Details",
-				"type": "+",
-				"action": {
-					"type": "open.url",
-					"data": {"web": erp_link}
-				}
-			}
-		]
-	
-	return message
-
-
-def create_task_assignment_template(task_id: str, task_name: str, assigned_to: str, due_date: str = None, priority: str = "Medium", erp_link: str = None, description: str = None):
-	"""Create a task assignment notification."""
-	base_url = frappe.utils.get_url()
-	if not erp_link:
-		erp_link = f"{base_url}/app/task/{task_id}"
-	
-	# Get the actual task name from the database if not provided
-	if not task_name or task_name.strip() == "":
-		try:
-			task_doc = frappe.get_doc("Task", task_id)
-			task_name = task_doc.subject or task_doc.name
-		except:
-			task_name = task_id
-	
-	details = {
-		"Task ID": task_id,
-		"Task Name": task_name,
-		"Priority": priority,
-	}
-	# Only add assigned_to if it has a value
-	if assigned_to and assigned_to.strip():
-		details["Assigned To"] = assigned_to
-	
-	if due_date:
-		details["Due Date"] = due_date
-	
-	# Handle mention text
-	mention_text = f"{{@{assigned_to}}}" if assigned_to and assigned_to.strip() else ""
-	
-	# Create the card structure
-	card = {
-		"card": {
-			"title": f"TASK ASSIGNED: CLICK TO VIEW",
-			"theme": "prompt",
-		},
-		"text": f"**{task_name}** {mention_text}",
-		"slides": [
-			{
-				"type": "table",
-				"title": "Task Details",
-				"data": {
-					"headers": ["Field", "Value"],
-					"rows": [{"Field": k, "Value": v} for k, v in details.items()]
-				}
-			}
-		],
-		"buttons": [
-			{
-				"label": "View Task",
-				"type": "+",
-				"action": {
-					"type": "open.url",
-					"data": {"web": erp_link}
-				}
-			}
-		],
-		"sync_message": True
-	}
-	
-	# Add description slide if available
-	if description and description.strip():
-		# Clean HTML tags from description if present
-		import re
-		clean_description = re.sub(r'<[^>]+>', '', description)
-		clean_description = clean_description.replace('&nbsp;', ' ').strip()
-		
-		if clean_description:
-			card["slides"].append({
-				"type": "table",
-				"title": "Task Description",
-				"data": {
-					"headers": ["Description"],
-					"rows": [{"Description": clean_description[:500] + "..." if len(clean_description) > 500 else clean_description}]
-				}
-			})
-			# Simple log to verify slide count
-			frappe.log_error(f"Task card created with {len(card['slides'])} slides", "Task Card Debug")
-	
-	return card
-
-
-def create_meeting_schedule_template(meeting_title: str, scheduled_by: str, participants: list, date_time: str, duration: str = "1 hour", erp_link: str = None):
-	"""Create a meeting/appointment schedule notification."""
-	participant_mentions = " ".join([f"{{@{p}}}" for p in participants])
-	
-	details = {
-		"Meeting": meeting_title,
-		"Scheduled By": scheduled_by,
-		"Date & Time": date_time,
-		"Duration": duration,
-		"Participants": ", ".join(participants),
-	}
-	
-	return {
-		"card": {
-			"title": f"MEETING SCHEDULED: {meeting_title}",
-			"theme": "modern-inline",
-		},
-		"text": f"**MEETING SCHEDULED: {meeting_title}** {participant_mentions}",
-		"slides": [
-			{
-				"type": "table",
-				"title": "Meeting Details",
-				"data": {
-					"headers": ["Field", "Value"],
-					"rows": [{"Field": k, "Value": v} for k, v in details.items()]
-				}
-			}
-		],
-		"buttons": [
-			{
-				"label": "Join Meeting",
-				"type": "+",
-				"action": {
-					"type": "open.url",
-					"data": {"web": erp_link or "#"}
-				}
-			}
-		]
-	}
-
-
-def create_material_request_template(request_id: str, requested_by: str, items: list, urgency: str = "Normal", erp_link: str = None):
-	"""Create a material request notification."""
-	base_url = frappe.utils.get_url()
-	if not erp_link:
-		erp_link = f"{base_url}/app/material-request/{request_id}"
-	
-	# Get the actual material request title from the database
-	request_title = request_id  # Default to request_id if title not found
-	try:
-		mr_doc = frappe.get_doc("Material Request", request_id)
-		request_title = mr_doc.title or mr_doc.name
-	except:
-		# If material request not found, use request_id as fallback
-		request_title = request_id
-	
-	item_rows = [{"Field": f"Item {i+1}", "Value": item} for i, item in enumerate(items)]
-	
-	return {
-		"card": {
-			"title": f"MATERIAL REQUEST: {request_title}",
-			"theme": "modern-inline",
-		},
-		"text": f"**MATERIAL REQUEST: {request_title}** {{@{requested_by}}}",
-		"slides": [
-			{
-				"type": "table",
-				"title": "Request Details",
-				"data": {
-					"headers": ["Field", "Value"],
-					"rows": [
-						{"Field": "Request ID", "Value": request_id},
-						{"Field": "Request Title", "Value": request_title},
-						{"Field": "Requested By", "Value": requested_by},
-						{"Field": "Urgency", "Value": urgency},
-						{"Field": "Items Count", "Value": str(len(items))},
-					] + item_rows
-				}
-			}
-		],
-		"buttons": [
-			{
-				"label": "View Request",
-				"type": "+",
-				"action": {
-					"type": "open.url",
-					"data": {"web": erp_link}
-				}
-			}
-		],
-		"sync_message": True
-	}
-
-
-def create_thread_message_template(parent_message_id: str, thread_title: str, initial_message: str):
-	"""Create a thread message for discussions."""
-	return {
-		"text": initial_message,
-		"thread_message_id": parent_message_id,
-		"thread_title": thread_title,
-		"sync_message": True
-	}
+@frappe.whitelist()
+def debug_payment_link_doc():
+    """Debug payment link document details"""
+    try:
+        pl_doc_name = "plink_QyO7BvlG8N35Vd"
+        pl_doc = frappe.get_doc("Razorpay Payment Link", pl_doc_name)
+        
+        return {
+            "success": True,
+            "pl_doc_name": pl_doc.name,
+            "payment_link_id": pl_doc.payment_link_id,
+            "short_url": pl_doc.short_url,
+            "amount": pl_doc.amount,
+            "currency": pl_doc.currency,
+            "status": pl_doc.status,
+            "expire_by": pl_doc.expire_by,
+            "quotation": pl_doc.quotation,
+            "customer": pl_doc.customer,
+        }
+        
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 # ------------- Enhanced ZohoCliq Functions -----------------
@@ -847,411 +852,6 @@ def send_status_update(title: str, status: str, details: dict, assigned_to: str 
 	return send_zohocliq_message_with_thread(webhook_url, main_message)
 
 
-
-@frappe.whitelist()
-def check_quotation_custom_fields():
-    """Check Quotation custom fields"""
-    try:
-        fields = frappe.get_all('Custom Field', 
-            filters={'dt': 'Quotation', 'fieldname': ['like', 'razorpay%']}, 
-            fields=['fieldname', 'label', 'fieldtype'])
-        
-        return {
-            "success": True,
-            "fields": fields
-        }
-        
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-
-@frappe.whitelist()
-def create_payment_link_for_quotation(quotation_name: str, advanced_options: dict | None = None):
-    """Create a Razorpay payment link for the given quotation.
-
-    Returns the response from Razorpay API.
-    """
-    try:
-        quotation = frappe.get_doc("Quotation", quotation_name)
-        settings = frappe.get_single("Razorpay Settings")
-
-        client = get_razorpay_client()
-
-        amount_rupees = quotation.grand_total
-        amount_paise = int(amount_rupees * 100)
-
-        payload = {
-            "amount": amount_paise,
-            "currency": quotation.currency or "INR",
-            "accept_partial": bool(settings.allow_partial_payments),
-            "description": f"Payment for Quotation {quotation.name}{' (Revised)' if quotation.amended_from else ''}",
-            "reference_id": f"{quotation.name}_{frappe.generate_hash(length=8)}",
-            "customer": {
-                "name": quotation.customer_name,
-                "email": quotation.contact_email or "",
-                "contact": quotation.contact_mobile or "",
-            },
-            "notify": {"sms": True, "email": True},
-            "reminder_enable": True,
-            "notes": {
-                "quotation_id": quotation.name,
-                "customer": quotation.customer_name,
-                "is_revision": bool(quotation.amended_from),
-                "original_quote": quotation.amended_from if quotation.amended_from else None
-            }
-        }
-
-        # Expiry
-        if quotation.valid_till:
-            payload["expire_by"] = int(frappe.utils.get_timestamp(quotation.valid_till))
-        else:
-            # Set default expiry to 30 days from now
-            from datetime import datetime, time
-            from frappe.utils import getdate, add_days
-            
-            expiry_date = add_days(getdate(), 30)
-            expiry_datetime = datetime.combine(expiry_date, time(23, 59, 59))
-            payload["expire_by"] = int(expiry_datetime.timestamp())
-
-        # Merge advanced options
-        if advanced_options:
-            payload.update({k: v for k, v in advanced_options.items() if v is not None})
-
-        # Create payment link
-        response = client.payment_link.create(payload)
-        
-        # Debug: Log the response (shorter version)
-        frappe.log_error(f"Payment link created: {response.get('id')} - {response.get('short_url')}", "Razorpay Debug")
-
-        # Create Payment Link DocType entry
-        pl_doc = frappe.new_doc("Razorpay Payment Link")
-        pl_doc.payment_link_id = response.get("id")
-        pl_doc.short_url = response.get("short_url")
-        pl_doc.status = response.get("status")
-        pl_doc.amount = amount_rupees
-        pl_doc.currency = quotation.currency
-        pl_doc.quotation = quotation.name
-        pl_doc.customer = quotation.customer_name
-        pl_doc.expire_by = frappe.utils.getdate(response.get("expire_by")) if response.get("expire_by") else frappe.utils.add_days(frappe.utils.getdate(), 30)
-        pl_doc.insert(ignore_permissions=True)
-        
-        # Update the payment link ID in the document
-        pl_doc.db_set("payment_link_id", response.get("id"))
-
-        # Attach QR code to Payment Link and Quotation
-        qr_bytes = generate_qr_code(response.get("short_url"))
-        if qr_bytes:
-            try:
-                # Ensure quotation name is a valid string or integer
-                if quotation.name is None:
-                    quotation_name_str = "unknown"
-                elif isinstance(quotation.name, (str, int)):
-                    quotation_name_str = str(quotation.name)
-                else:
-                    # Try to convert to string, fallback to unknown
-                    try:
-                        quotation_name_str = str(quotation.name)
-                    except:
-                        quotation_name_str = "unknown"
-                
-                fname = f"QR-{quotation_name_str}.png"
-                
-                # Create file document manually with public access
-                file_doc = frappe.get_doc({
-                    "doctype": "File",
-                    "file_name": fname,
-                    "content": qr_bytes,
-                    "is_private": 0,  # Make it public
-                    "attached_to_doctype": "Quotation",
-                    "attached_to_name": quotation_name_str,
-                })
-                file_doc.save()
-                
-                quotation.razorpay_qr_code = file_doc.file_url
-                pl_doc.qr = file_doc.file_url
-            except Exception as qr_error:
-                # Use shorter error message to avoid length issues
-                error_msg = str(qr_error)[:100] if len(str(qr_error)) > 100 else str(qr_error)
-                frappe.log_error(f"QR attachment failed for {quotation.name}: {error_msg}", "Razorpay QR Error")
-
-        # Update Quotation fields
-        quotation.db_set("razorpay_payment_url", response.get("short_url"))
-        quotation.db_set("razorpay_payment_link", pl_doc.name)  # Link to the Payment Link DocType
-        quotation.db_set("razorpay_expiry", pl_doc.expire_by)
-        
-        # Update QR code if generated
-        if qr_bytes and hasattr(quotation, 'razorpay_qr_code'):
-            quotation.db_set("razorpay_qr_code", quotation.razorpay_qr_code)
-
-        return response
-    except Exception as e:
-        # Use shorter error message to avoid CharacterLengthExceededError
-        error_msg = str(e)[:100] if len(str(e)) > 100 else str(e)
-        frappe.log_error(f"Payment link creation failed for {quotation_name}: {error_msg}")
-        return {"success": False, "error": str(e)}
-
-
-def update_payment_link_on_revision(quotation_name: str):
-    """Create new payment link on quotation revision (Razorpay doesn't allow updating amounts)"""
-    try:
-        quotation = frappe.get_doc("Quotation", quotation_name)
-        
-        # Check if quotation has an existing payment link
-        if quotation.razorpay_payment_link:
-            # Cancel the old payment link if possible
-            try:
-                pl_doc = frappe.get_doc("Razorpay Payment Link", quotation.razorpay_payment_link)
-                if pl_doc.payment_link_id:
-                    client = get_razorpay_client()
-                    client.payment_link.cancel(pl_doc.payment_link_id)
-                    frappe.log_error(f"Cancelled old payment link {pl_doc.payment_link_id} for {quotation_name}", "Razorpay Cancel")
-            except Exception as cancel_error:
-                frappe.log_error(f"Failed to cancel old payment link: {str(cancel_error)}", "Razorpay Cancel Error")
-        
-        # Always create a new payment link for revisions
-        result = create_payment_link_for_quotation(quotation_name)
-        
-        return {
-            "success": True,
-            "message": "New payment link created for revised quotation",
-            "result": result
-        }
-            
-    except Exception as e:
-        frappe.log_error(f"Failed to handle payment link for quotation revision {quotation_name}: {str(e)}", "Razorpay Revision Error")
-        return {"success": False, "error": str(e)}
-
-
-@frappe.whitelist()
-def check_razorpay_settings_fields():
-    """Check what fields are in Razorpay Settings"""
-    try:
-        settings = frappe.get_single("Razorpay Settings")
-        
-        # Get all field values
-        field_values = {}
-        for field in settings.meta.fields:
-            if field.fieldtype == "Password":
-                field_values[field.fieldname] = "***HIDDEN***"
-            else:
-                field_values[field.fieldname] = getattr(settings, field.fieldname, None)
-        
-        return {
-            "success": True,
-            "fields": field_values
-        }
-        
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-
-
-@frappe.whitelist()
-def fetch_payment_link_details(payment_link_id: str):
-    """Fetch payment details for a payment link"""
-    try:
-        client = get_razorpay_client()
-        
-        # Fetch payment link details from Razorpay
-        payment_link = client.payment_link.fetch(payment_link_id)
-        
-        # Get payment details
-        payments = []
-        if payment_link.get("payments"):
-            for payment in payment_link["payments"]:
-                payment_details = client.payment.fetch(payment["id"])
-                payments.append({
-                    "payment_id": payment["id"],
-                    "amount": payment["amount"] / 100,  # Convert from paise to rupees
-                    "currency": payment["currency"],
-                    "status": payment["status"],
-                    "method": payment["method"],
-                    "created_at": payment["created_at"],
-                    "captured_at": payment.get("captured_at"),
-                    "description": payment.get("description", ""),
-                    "email": payment.get("email", ""),
-                    "contact": payment.get("contact", ""),
-                    "notes": payment.get("notes", {})
-                })
-        
-        return {
-            "success": True,
-            "payment_link": {
-                "id": payment_link["id"],
-                "short_url": payment_link["short_url"],
-                "amount": payment_link["amount"] / 100,
-                "amount_paid": payment_link["amount_paid"] / 100,
-                "currency": payment_link["currency"],
-                "status": payment_link["status"],
-                "created_at": payment_link["created_at"],
-                "expire_by": payment_link.get("expire_by"),
-                "expired_at": payment_link.get("expired_at"),
-                "cancelled_at": payment_link.get("cancelled_at"),
-                "description": payment_link.get("description", ""),
-                "reference_id": payment_link.get("reference_id", ""),
-                "accept_partial": payment_link.get("accept_partial", False),
-                "first_min_partial_amount": payment_link.get("first_min_partial_amount", 0) / 100 if payment_link.get("first_min_partial_amount") else 0
-            },
-            "payments": payments
-        }
-        
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-
-@frappe.whitelist()
-def update_payment_link_status(payment_link_name: str):
-    """Update payment link status and track payments"""
-    try:
-        # Get the payment link document
-        pl_doc = frappe.get_doc("Razorpay Payment Link", payment_link_name)
-        
-        # Fetch latest details from Razorpay
-        client = get_razorpay_client()
-        payment_link = client.payment_link.fetch(pl_doc.id)
-        
-        # Update status
-        pl_doc.status = payment_link["status"]
-        
-        # Update amount paid
-        if payment_link.get("amount_paid"):
-            pl_doc.amount_paid = payment_link["amount_paid"] / 100
-        
-        # Save the document
-        pl_doc.save()
-        
-        return {
-            "success": True,
-            "status": payment_link["status"],
-            "amount_paid": payment_link.get("amount_paid", 0) / 100,
-            "total_amount": payment_link["amount"] / 100
-        }
-        
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-
-def create_quote_update_template(quote_name: str, quote_details: dict, payment_link: str, qr_image_url: str = None):
-    """Create a quote update template for ZohoCliq notification"""
-    
-    # Get quote details
-    quote_number = quote_details.get("name", quote_name)
-    customer_name = quote_details.get("customer_name", "")
-    grand_total = quote_details.get("grand_total", 0)
-    currency = quote_details.get("currency", "INR")
-    valid_till = quote_details.get("valid_till", "")
-    
-    # Format the amount
-    amount_str = f"{currency} {grand_total:,.2f}" if grand_total else "Not specified"
-    
-    # Create the card
-    card = {
-        "bot": {
-            "name": "ERPNext Razorpay"
-        },
-        "card": {
-            "title": f"QUOTE UPDATE - {quote_details.get('name', quote_name)}",
-            "theme": "modern-inline"
-        },
-        "text": f"**New Payment Link Generated** for Quote *{quote_details.get('name', quote_name)}*\n\nPayment Link: {payment_link}",
-        "slides": [
-            {
-                "type": "table",
-                "title": "Quote Details",
-                "data": {
-                    "headers": ["Field", "Value"],
-                    "rows": [
-                        {"Field": "Quote Number", "Value": quote_number},
-                        {"Field": "Customer", "Value": customer_name},
-                        {"Field": "Amount", "Value": amount_str},
-                        {"Field": "Currency", "Value": currency},
-                        {"Field": "Valid Till", "Value": valid_till or "Not specified"},
-                    ]
-                }
-            }
-        ],
-        "buttons": [
-            {
-                "label": "View Quote",
-                "type": "+",
-                "action": {
-                    "type": "open.url",
-                    "data": {
-                        "web": f"{frappe.utils.get_url()}/app/quotation/{quote_name}"
-                    }
-                }
-            },
-            {
-                "label": "Payment Link",
-                "type": "+",
-                "action": {
-                    "type": "open.url",
-                    "data": {
-                        "web": payment_link
-                    }
-                }
-            }
-        ]
-    }
-    
-    # Add QR code image if available
-    if qr_image_url:
-        card["slides"].append({
-            "type": "images",
-            "title": "QR Code for Payment",
-            "data": [f"{frappe.utils.get_url()}{qr_image_url}"]
-        })
-    
-    return card
-
-
-
-@frappe.whitelist()
-def debug_payment_link_status():
-    """Debug payment link status for a quotation"""
-    try:
-        quotation_name = "SAL-QTN-2025-00010-5"
-        quotation = frappe.get_doc("Quotation", quotation_name)
-        
-        return {
-            "success": True,
-            "quotation_name": quotation.name,
-            "razorpay_payment_link": quotation.razorpay_payment_link,
-            "razorpay_payment_url": quotation.razorpay_payment_url,
-            "razorpay_qr_code": quotation.razorpay_qr_code,
-            "razorpay_expiry": quotation.razorpay_expiry,
-            "grand_total": quotation.grand_total,
-            "valid_till": quotation.valid_till,
-        }
-        
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-
-@frappe.whitelist()
-def debug_payment_link_doc():
-    """Debug payment link document details"""
-    try:
-        pl_doc_name = "plink_QyO7BvlG8N35Vd"
-        pl_doc = frappe.get_doc("Razorpay Payment Link", pl_doc_name)
-        
-        return {
-            "success": True,
-            "pl_doc_name": pl_doc.name,
-            "payment_link_id": pl_doc.payment_link_id,
-            "short_url": pl_doc.short_url,
-            "amount": pl_doc.amount,
-            "currency": pl_doc.currency,
-            "status": pl_doc.status,
-            "expire_by": pl_doc.expire_by,
-            "quotation": pl_doc.quotation,
-            "customer": pl_doc.customer,
-        }
-        
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-
 @frappe.whitelist()
 def send_project_notification_with_thread(project_id, channel="Project"):
     """Send project notification with thread creation and save thread ID to project"""
@@ -1400,5 +1000,432 @@ def send_task_notification_to_project_thread(task_id, project_id=None):
             return response
             
     except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+# ------------- Settlement Functions -----------------
+
+@frappe.whitelist()
+def fetch_settlement(settlement_id: str):
+    """Fetch settlement details from Razorpay"""
+    try:
+        client = get_razorpay_client()
+        settlement = client.settlement.fetch(settlement_id)
+        
+        return {
+            "success": True,
+            "settlement": {
+                "id": settlement.get("id"),
+                "entity": settlement.get("entity"),
+                "amount": settlement.get("amount") / 100 if settlement.get("amount") else 0,
+                "currency": settlement.get("currency"),
+                "status": settlement.get("status"),
+                "created_at": settlement.get("created_at"),
+                "updated_at": settlement.get("updated_at"),
+                "fee": settlement.get("fee") / 100 if settlement.get("fee") else 0,
+                "tax": settlement.get("tax") / 100 if settlement.get("tax") else 0,
+                "utr": settlement.get("utr"),
+                "settlement_date": settlement.get("settlement_date"),
+                "on_hold": settlement.get("on_hold", False),
+                "on_hold_until": settlement.get("on_hold_until"),
+                "description": settlement.get("description", ""),
+                "notes": settlement.get("notes", {}),
+                # Additional Razorpay settlement fields
+                "settlement_type": settlement.get("settlement_type", "regular"),
+                "bank_account": settlement.get("bank_account", ""),
+                "ifsc_code": settlement.get("ifsc_code", ""),
+                "account_number": settlement.get("account_number", ""),
+                "account_type": settlement.get("account_type", ""),
+                "beneficiary_name": settlement.get("beneficiary_name", ""),
+                "beneficiary_email": settlement.get("beneficiary_email", ""),
+                "beneficiary_mobile": settlement.get("beneficiary_mobile", ""),
+                "processed_at": settlement.get("processed_at"),
+                "cancelled_at": settlement.get("cancelled_at"),
+                "failure_reason": settlement.get("failure_reason", ""),
+                "failure_code": settlement.get("failure_code", ""),
+                "bank_reference_number": settlement.get("bank_reference_number", ""),
+                "bank_branch": settlement.get("bank_branch", ""),
+                "bank_city": settlement.get("bank_city", ""),
+                "bank_state": settlement.get("bank_state", ""),
+                "bank_pincode": settlement.get("bank_pincode", ""),
+                "bank_country": settlement.get("bank_country", ""),
+                "bank_phone": settlement.get("bank_phone", ""),
+                "bank_email": settlement.get("bank_email", "")
+            }
+        }
+        
+    except Exception as e:
+        frappe.log_error(f"Failed to fetch settlement {settlement_id}: {str(e)}", "Razorpay Settlement Error")
+        return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def fetch_all_settlements(from_date: str = None, to_date: str = None, count: int = 10):
+    """Fetch all settlements from Razorpay"""
+    try:
+        client = get_razorpay_client()
+        
+        # Prepare parameters
+        params = {"count": count}
+        if from_date:
+            params["from"] = int(frappe.utils.get_timestamp(from_date))
+        if to_date:
+            params["to"] = int(frappe.utils.get_timestamp(to_date))
+        
+        settlements = client.settlement.all(params)
+        
+        # Process settlements
+        processed_settlements = []
+        for settlement in settlements.get("items", []):
+            processed_settlements.append({
+                "id": settlement.get("id"),
+                "entity": settlement.get("entity"),
+                "amount": settlement.get("amount") / 100 if settlement.get("amount") else 0,
+                "currency": settlement.get("currency"),
+                "status": settlement.get("status"),
+                "created_at": settlement.get("created_at"),
+                "updated_at": settlement.get("updated_at"),
+                "fee": settlement.get("fee") / 100 if settlement.get("fee") else 0,
+                "tax": settlement.get("tax") / 100 if settlement.get("tax") else 0,
+                "utr": settlement.get("utr"),
+                "settlement_date": settlement.get("settlement_date"),
+                "on_hold": settlement.get("on_hold", False),
+                "on_hold_until": settlement.get("on_hold_until"),
+                "description": settlement.get("description", ""),
+                "notes": settlement.get("notes", {}),
+                # Additional Razorpay settlement fields
+                "settlement_type": settlement.get("settlement_type", "regular"),
+                "bank_account": settlement.get("bank_account", ""),
+                "ifsc_code": settlement.get("ifsc_code", ""),
+                "account_number": settlement.get("account_number", ""),
+                "account_type": settlement.get("account_type", ""),
+                "beneficiary_name": settlement.get("beneficiary_name", ""),
+                "beneficiary_email": settlement.get("beneficiary_email", ""),
+                "beneficiary_mobile": settlement.get("beneficiary_mobile", ""),
+                "processed_at": settlement.get("processed_at"),
+                "cancelled_at": settlement.get("cancelled_at"),
+                "failure_reason": settlement.get("failure_reason", ""),
+                "failure_code": settlement.get("failure_code", ""),
+                "bank_reference_number": settlement.get("bank_reference_number", ""),
+                "bank_branch": settlement.get("bank_branch", ""),
+                "bank_city": settlement.get("bank_city", ""),
+                "bank_state": settlement.get("bank_state", ""),
+                "bank_pincode": settlement.get("bank_pincode", ""),
+                "bank_country": settlement.get("bank_country", ""),
+                "bank_phone": settlement.get("bank_phone", ""),
+                "bank_email": settlement.get("bank_email", "")
+            })
+        
+        return {
+            "success": True,
+            "settlements": processed_settlements,
+            "count": len(processed_settlements),
+            "total_count": settlements.get("count", 0)
+        }
+        
+    except Exception as e:
+        frappe.log_error(f"Failed to fetch settlements: {str(e)}", "Razorpay Settlement Error")
+        return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def settlement_recon(settlement_id: str):
+    """Reconcile settlement with local records"""
+    try:
+        # Fetch settlement from Razorpay
+        settlement_data = fetch_settlement(settlement_id)
+        if not settlement_data.get("success"):
+            return settlement_data
+        
+        settlement = settlement_data["settlement"]
+        
+        # Create or update settlement DocType
+        settlement_doc = None
+        try:
+            settlement_doc = frappe.get_doc("Razorpay Settlement", settlement_id)
+        except frappe.DoesNotExistError:
+            settlement_doc = frappe.new_doc("Razorpay Settlement")
+            settlement_doc.settlement_id = settlement_id
+        
+        # Update settlement details
+        settlement_doc.settlement_id = settlement["id"]
+        settlement_doc.entity = settlement["entity"]
+        settlement_doc.amount = settlement["amount"]
+        settlement_doc.currency = settlement["currency"]
+        settlement_doc.status = settlement["status"]
+        settlement_doc.created_at = frappe.utils.get_datetime(settlement["created_at"])
+        settlement_doc.updated_at = frappe.utils.get_datetime(settlement["updated_at"])
+        settlement_doc.fee = settlement["fee"]
+        settlement_doc.tax = settlement["tax"]
+        settlement_doc.utr = settlement["utr"]
+        settlement_doc.settlement_date = frappe.utils.get_date(settlement["settlement_date"]) if settlement["settlement_date"] else None
+        settlement_doc.on_hold = settlement["on_hold"]
+        settlement_doc.on_hold_until = frappe.utils.get_datetime(settlement["on_hold_until"]) if settlement["on_hold_until"] else None
+        settlement_doc.description = settlement["description"]
+        settlement_doc.notes = frappe.as_json(settlement["notes"])
+        
+        # Additional Razorpay settlement fields
+        settlement_doc.settlement_type = settlement.get("settlement_type", "regular")
+        settlement_doc.bank_account = settlement.get("bank_account", "")
+        settlement_doc.ifsc_code = settlement.get("ifsc_code", "")
+        settlement_doc.account_number = settlement.get("account_number", "")
+        settlement_doc.account_type = settlement.get("account_type", "")
+        settlement_doc.beneficiary_name = settlement.get("beneficiary_name", "")
+        settlement_doc.beneficiary_email = settlement.get("beneficiary_email", "")
+        settlement_doc.beneficiary_mobile = settlement.get("beneficiary_mobile", "")
+        settlement_doc.processed_at = frappe.utils.get_datetime(settlement["processed_at"]) if settlement.get("processed_at") else None
+        settlement_doc.cancelled_at = frappe.utils.get_datetime(settlement["cancelled_at"]) if settlement.get("cancelled_at") else None
+        settlement_doc.failure_reason = settlement.get("failure_reason", "")
+        settlement_doc.failure_code = settlement.get("failure_code", "")
+        settlement_doc.bank_reference_number = settlement.get("bank_reference_number", "")
+        settlement_doc.bank_branch = settlement.get("bank_branch", "")
+        settlement_doc.bank_city = settlement.get("bank_city", "")
+        settlement_doc.bank_state = settlement.get("bank_state", ""),
+        settlement_doc.bank_pincode = settlement.get("bank_pincode", ""),
+        settlement_doc.bank_country = settlement.get("bank_country", ""),
+        settlement_doc.bank_phone = settlement.get("bank_phone", ""),
+        settlement_doc.bank_email = settlement.get("bank_email", "")
+        
+        settlement_doc.save()
+        
+        return {
+            "success": True,
+            "message": f"Settlement {settlement_id} reconciled successfully",
+            "settlement_name": settlement_doc.name
+        }
+        
+    except Exception as e:
+        frappe.log_error(f"Failed to reconcile settlement {settlement_id}: {str(e)}", "Razorpay Settlement Recon Error")
+        return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def create_ondemand_settlement(amount: float, currency: str = "INR", description: str = None):
+    """Create on-demand settlement (for immediate settlement of captured payments)"""
+    try:
+        client = get_razorpay_client()
+        
+        payload = {
+            "amount": int(amount * 100),  # Convert to paise
+            "currency": currency,
+            "description": description or f"On-demand settlement for {amount} {currency}"
+        }
+        
+        settlement = client.settlement.create_ondemand(payload)
+        
+        return {
+            "success": True,
+            "settlement": {
+                "id": settlement.get("id"),
+                "entity": settlement.get("entity"),
+                "amount": settlement.get("amount") / 100 if settlement.get("amount") else 0,
+                "currency": settlement.get("currency"),
+                "status": settlement.get("status"),
+                "created_at": settlement.get("created_at"),
+                "updated_at": settlement.get("updated_at"),
+                "fee": settlement.get("fee") / 100 if settlement.get("fee") else 0,
+                "tax": settlement.get("tax") / 100 if settlement.get("tax") else 0,
+                "utr": settlement.get("utr"),
+                "settlement_date": settlement.get("settlement_date"),
+                "on_hold": settlement.get("on_hold", False),
+                "on_hold_until": settlement.get("on_hold_until"),
+                "description": settlement.get("description", ""),
+                "notes": settlement.get("notes", {}),
+                # Additional Razorpay settlement fields
+                "settlement_type": "ondemand",
+                "bank_account": settlement.get("bank_account", ""),
+                "ifsc_code": settlement.get("ifsc_code", ""),
+                "account_number": settlement.get("account_number", ""),
+                "account_type": settlement.get("account_type", ""),
+                "beneficiary_name": settlement.get("beneficiary_name", ""),
+                "beneficiary_email": settlement.get("beneficiary_email", ""),
+                "beneficiary_mobile": settlement.get("beneficiary_mobile", ""),
+                "processed_at": settlement.get("processed_at"),
+                "cancelled_at": settlement.get("cancelled_at"),
+                "failure_reason": settlement.get("failure_reason", ""),
+                "failure_code": settlement.get("failure_code", ""),
+                "bank_reference_number": settlement.get("bank_reference_number", ""),
+                "bank_branch": settlement.get("bank_branch", ""),
+                "bank_city": settlement.get("bank_city", ""),
+                "bank_state": settlement.get("bank_state", ""),
+                "bank_pincode": settlement.get("bank_pincode", ""),
+                "bank_country": settlement.get("bank_country", ""),
+                "bank_phone": settlement.get("bank_phone", ""),
+                "bank_email": settlement.get("bank_email", "")
+            }
+        }
+        
+    except Exception as e:
+        frappe.log_error(f"Failed to create on-demand settlement: {str(e)}", "Razorpay Settlement Error")
+        return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def fetch_all_ondemand_settlements(from_date: str = None, to_date: str = None, count: int = 10):
+    """Fetch all on-demand settlements from Razorpay"""
+    try:
+        client = get_razorpay_client()
+        
+        # Prepare parameters
+        params = {"count": count}
+        if from_date:
+            params["from"] = int(frappe.utils.get_timestamp(from_date))
+        if to_date:
+            params["to"] = int(frappe.utils.get_timestamp(to_date))
+        
+        settlements = client.settlement.fetch_all_ondemand(params)
+        
+        # Process settlements
+        processed_settlements = []
+        for settlement in settlements.get("items", []):
+            processed_settlements.append({
+                "id": settlement.get("id"),
+                "entity": settlement.get("entity"),
+                "amount": settlement.get("amount") / 100 if settlement.get("amount") else 0,
+                "currency": settlement.get("currency"),
+                "status": settlement.get("status"),
+                "created_at": settlement.get("created_at"),
+                "updated_at": settlement.get("updated_at"),
+                "fee": settlement.get("fee") / 100 if settlement.get("fee") else 0,
+                "tax": settlement.get("tax") / 100 if settlement.get("tax") else 0,
+                "utr": settlement.get("utr"),
+                "settlement_date": settlement.get("settlement_date"),
+                "on_hold": settlement.get("on_hold", False),
+                "on_hold_until": settlement.get("on_hold_until"),
+                "description": settlement.get("description", ""),
+                "notes": settlement.get("notes", {}),
+                # Additional Razorpay settlement fields
+                "settlement_type": "ondemand",
+                "bank_account": settlement.get("bank_account", ""),
+                "ifsc_code": settlement.get("ifsc_code", ""),
+                "account_number": settlement.get("account_number", ""),
+                "account_type": settlement.get("account_type", ""),
+                "beneficiary_name": settlement.get("beneficiary_name", ""),
+                "beneficiary_email": settlement.get("beneficiary_email", ""),
+                "beneficiary_mobile": settlement.get("beneficiary_mobile", ""),
+                "processed_at": settlement.get("processed_at"),
+                "cancelled_at": settlement.get("cancelled_at"),
+                "failure_reason": settlement.get("failure_reason", ""),
+                "failure_code": settlement.get("failure_code", ""),
+                "bank_reference_number": settlement.get("bank_reference_number", ""),
+                "bank_branch": settlement.get("bank_branch", ""),
+                "bank_city": settlement.get("bank_city", ""),
+                "bank_state": settlement.get("bank_state", ""),
+                "bank_pincode": settlement.get("bank_pincode", ""),
+                "bank_country": settlement.get("bank_country", ""),
+                "bank_phone": settlement.get("bank_phone", ""),
+                "bank_email": settlement.get("bank_email", "")
+            })
+        
+        return {
+            "success": True,
+            "settlements": processed_settlements,
+            "count": len(processed_settlements),
+            "total_count": settlements.get("count", 0)
+        }
+        
+    except Exception as e:
+        frappe.log_error(f"Failed to fetch on-demand settlements: {str(e)}", "Razorpay Settlement Error")
+        return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def fetch_automatic_settlements(from_date: str = None, to_date: str = None, count: int = 10):
+    """Fetch automatic settlements created by Razorpay based on captured payments"""
+    try:
+        client = get_razorpay_client()
+        
+        # Prepare parameters
+        params = {"count": count}
+        if from_date:
+            params["from"] = int(frappe.utils.get_timestamp(from_date))
+        if to_date:
+            params["to"] = int(frappe.utils.get_timestamp(to_date))
+        
+        # Fetch regular settlements (automatic settlements)
+        settlements = client.settlement.all(params)
+        
+        # Process settlements
+        processed_settlements = []
+        for settlement in settlements.get("items", []):
+            # Only include regular settlements (not on-demand)
+            if settlement.get("settlement_type") != "ondemand":
+                processed_settlements.append({
+                    "id": settlement.get("id"),
+                    "entity": settlement.get("entity"),
+                    "amount": settlement.get("amount") / 100 if settlement.get("amount") else 0,
+                    "currency": settlement.get("currency"),
+                    "status": settlement.get("status"),
+                    "created_at": settlement.get("created_at"),
+                    "updated_at": settlement.get("updated_at"),
+                    "fee": settlement.get("fee") / 100 if settlement.get("fee") else 0,
+                    "tax": settlement.get("tax") / 100 if settlement.get("tax") else 0,
+                    "utr": settlement.get("utr"),
+                    "settlement_date": settlement.get("settlement_date"),
+                    "on_hold": settlement.get("on_hold", False),
+                    "on_hold_until": settlement.get("on_hold_until"),
+                    "description": settlement.get("description", ""),
+                    "notes": settlement.get("notes", {}),
+                    # Additional Razorpay settlement fields
+                    "settlement_type": "regular",
+                    "bank_account": settlement.get("bank_account", ""),
+                    "ifsc_code": settlement.get("ifsc_code", ""),
+                    "account_number": settlement.get("account_number", ""),
+                    "account_type": settlement.get("account_type", ""),
+                    "beneficiary_name": settlement.get("beneficiary_name", ""),
+                    "beneficiary_email": settlement.get("beneficiary_email", ""),
+                    "beneficiary_mobile": settlement.get("beneficiary_mobile", ""),
+                    "processed_at": settlement.get("processed_at"),
+                    "cancelled_at": settlement.get("cancelled_at"),
+                    "failure_reason": settlement.get("failure_reason", ""),
+                    "failure_code": settlement.get("failure_code", ""),
+                    "bank_reference_number": settlement.get("bank_reference_number", ""),
+                    "bank_branch": settlement.get("bank_branch", ""),
+                    "bank_city": settlement.get("bank_city", ""),
+                    "bank_state": settlement.get("bank_state", ""),
+                    "bank_pincode": settlement.get("bank_pincode", ""),
+                    "bank_country": settlement.get("bank_country", ""),
+                    "bank_phone": settlement.get("bank_phone", ""),
+                    "bank_email": settlement.get("bank_email", "")
+                })
+        
+        return {
+            "success": True,
+            "settlements": processed_settlements,
+            "count": len(processed_settlements),
+            "total_count": settlements.get("count", 0)
+        }
+        
+    except Exception as e:
+        frappe.log_error(f"Failed to fetch automatic settlements: {str(e)}", "Razorpay Settlement Error")
+        return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def get_settlement_cycle_info():
+    """Get information about settlement cycle and bank account details"""
+    try:
+        client = get_razorpay_client()
+        
+        # Get account details (this might include settlement cycle info)
+        account = client.account.fetch()
+        
+        return {
+            "success": True,
+            "account": {
+                "id": account.get("id"),
+                "name": account.get("name"),
+                "email": account.get("email"),
+                "contact": account.get("contact"),
+                "type": account.get("type"),
+                "profile": account.get("profile", {}),
+                "bank_accounts": account.get("bank_accounts", []),
+                "settlement_cycle": account.get("settlement_cycle", {}),
+                "settlement_schedule": account.get("settlement_schedule", {})
+            }
+        }
+        
+    except Exception as e:
+        frappe.log_error(f"Failed to fetch settlement cycle info: {str(e)}", "Razorpay Settlement Error")
         return {"success": False, "error": str(e)}
 

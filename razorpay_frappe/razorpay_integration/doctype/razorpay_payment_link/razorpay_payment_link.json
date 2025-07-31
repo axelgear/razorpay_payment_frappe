@@ -8,9 +8,12 @@
  "field_order": [
   "amount",
   "amount_paid",
+  "remaining_amount",
   "currency",
   "id",
   "status",
+  "razorpay_payment_status",
+  "razorpay_payment_id",
   "column_break_cobc",
   "type",
   "callback_url",
@@ -74,6 +77,15 @@
   },
   {
    "allow_in_quick_entry": 1,
+   "fieldname": "remaining_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Remaining Amount",
+   "options": "currency",
+   "read_only": 1
+  },
+  {
+   "allow_in_quick_entry": 1,
    "default": "INR",
    "fieldname": "currency",
    "fieldtype": "Link",
@@ -106,6 +118,19 @@
    "options": "Created\nPartially Paid\nExpired\nCancelled\nPaid",
    "read_only": 1,
    "sort_options": 1
+  },
+  {
+   "fieldname": "razorpay_payment_status",
+   "fieldtype": "Select",
+   "label": "Payment Status",
+   "options": "Pending\nPartially Paid\nPaid\nFailed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "razorpay_payment_id",
+   "fieldtype": "Data",
+   "label": "Payment ID",
+   "read_only": 1
   },
   {
    "fieldname": "customer_details_section",

@@ -48,12 +48,26 @@ class RazorpayPaymentLink(Document):
 			self.customer_email = quotation.contact_email or quotation.email_id
 			self.customer_contact = quotation.contact_mobile or quotation.contact_phone
 
-		payment_link = self.create_payment_link_on_razorpay()
-
-		# Store returned identifiers
-		self.id = payment_link["id"]
-		self.short_url = payment_link["short_url"]
-		self.status = frappe.unscrub(payment_link["status"])
+		# Skip API call if link already created via utils and flag is set
+		if getattr(self.flags, "link_already_created", False):
+			payment_link = {
+				"id": self.id,
+				"short_url": self.short_url,
+				"status": self.status or "Created",
+			}
+		elif not self.get("id"):
+			payment_link = self.create_payment_link_on_razorpay()
+			# Store returned identifiers
+			self.id = payment_link["id"]
+			self.short_url = payment_link["short_url"]
+			self.status = frappe.unscrub(payment_link["status"])
+		else:
+			# Use existing id/short_url already provided
+			payment_link = {
+				"id": self.id,
+				"short_url": self.short_url,
+				"status": self.status or "Created",
+			}
 
 		# Generate QR code image & attach
 		try:

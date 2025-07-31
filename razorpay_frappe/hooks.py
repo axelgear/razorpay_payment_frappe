@@ -10,8 +10,13 @@ export_python_type_annotations = True
 
 page_renderer = ["razorpay_frappe.rzp_renderer.RazorpayEndpointHandler"]
 
+# Webhook endpoints
+webhook_endpoints = [
+    "razorpay_frappe.webhook_handler.razorpay_webhook"
+]
+
 scheduler_events = {
-	"hourly": ["razorpay_frappe.schedule_handlers.sync_payment_link_status"]
+	"hourly": ["razorpay_frappe.webhook_handler.sync_payment_link_status"]
 }
 
 # Includes in <head>
@@ -21,7 +26,8 @@ scheduler_events = {
 # app_include_css = "/assets/razorpay_frappe/css/razorpay_frappe.css"
 app_include_js = [
     "/assets/razorpay_frappe/js/quotation_payment_link.js",
-    "/assets/razorpay_frappe/js/project_form.js"
+    "/assets/razorpay_frappe/js/project_form.js",
+    "/assets/razorpay_frappe/js/payment_link_management.js"
 ]
 
 # include js, css files in header of web template
@@ -139,7 +145,6 @@ doc_events = {
     },
     "Quotation": {
         "on_submit": "razorpay_frappe.quotation_events.handle_quotation_submit",
-        "on_update_after_submit": "razorpay_frappe.quotation_events.handle_quotation_update",
     },
  }
 
