@@ -1,7 +1,7 @@
 [project]
 name = "razorpay_frappe"
 authors = [
-    { name = "Build With Hussain", email = "buildwithhussain@gmail.com"}
+    { name = "axelgear", email = "rejithr1995@gmail.com"}
 ]
 description = "Razorpay Integration for Frappe"
 requires-python = ">=3.10"
