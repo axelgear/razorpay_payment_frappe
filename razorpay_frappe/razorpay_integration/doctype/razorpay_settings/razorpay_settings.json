@@ -5,6 +5,7 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "section_environment",
   "sandbox_mode",
   "column_break_sandbox",
   "sandbox_key_id",
@@ -12,18 +13,25 @@
   "column_break_prod",
   "key_id",
   "key_secret",
-  "column_break_misc",
-  "webhook_secret",
-  "default_expiry_days",
+  "section_payment_config",
   "allow_partial_payments",
-  "virtual_account_prefix",
-  "allow_guest_checkout"
+  "default_expiry_days",
+  "allow_guest_checkout",
+  "section_webhooks",
+  "webhook_secret"
  ],
  "fields": [
   {
+   "fieldname": "section_environment",
+   "fieldtype": "Section Break",
+   "label": "🔧 Environment Configuration",
+   "collapsible": 0
+  },
+  {
    "fieldname": "sandbox_mode",
    "fieldtype": "Check",
-   "label": "Enable Sandbox Mode"
+   "label": "Enable Sandbox Mode",
+   "description": "Toggle between sandbox (testing) and production environment"
   },
   {
    "fieldname": "column_break_sandbox",
@@ -32,12 +40,16 @@
   {
    "fieldname": "sandbox_key_id",
    "fieldtype": "Data",
-   "label": "Sandbox Key ID"
+   "label": "Sandbox Key ID",
+   "description": "Your Razorpay sandbox key ID for testing",
+   "mandatory_depends_on": "eval:doc.sandbox_mode"
   },
   {
    "fieldname": "sandbox_key_secret",
    "fieldtype": "Password",
-   "label": "Sandbox Key Secret"
+   "label": "Sandbox Key Secret",
+   "description": "Your Razorpay sandbox key secret for testing",
+   "mandatory_depends_on": "eval:doc.sandbox_mode"
   },
   {
    "fieldname": "column_break_prod",
@@ -46,46 +58,57 @@
   {
    "fieldname": "key_id",
    "fieldtype": "Data",
-   "label": "Production Key ID"
+   "label": "Production Key ID",
+   "description": "Your Razorpay production key ID for live transactions",
+   "mandatory_depends_on": "eval:!doc.sandbox_mode"
   },
   {
    "fieldname": "key_secret",
    "fieldtype": "Password",
-   "label": "Production Key Secret"
+   "label": "Production Key Secret",
+   "description": "Your Razorpay production key secret for live transactions",
+   "mandatory_depends_on": "eval:!doc.sandbox_mode"
   },
   {
-   "fieldname": "column_break_misc",
-   "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "webhook_secret",
-   "fieldtype": "Password",
-   "label": "Webhook Secret"
-  },
-  {
-   "default": "7",
-   "fieldname": "default_expiry_days",
-   "fieldtype": "Int",
-   "label": "Default Expiry Days"
+   "fieldname": "section_payment_config",
+   "fieldtype": "Section Break",
+   "label": "💳 Payment Configuration",
+   "collapsible": 0
   },
   {
    "default": "0",
    "fieldname": "allow_partial_payments",
    "fieldtype": "Check",
-   "label": "Allow Partial Payments"
+   "label": "Allow Partial Payments",
+   "description": "Enable customers to pay partial amounts on payment links"
   },
   {
-   "fieldname": "virtual_account_prefix",
-   "label": "Virtual Account Prefix",
-   "fieldtype": "Data",
-   "default": "VA-",
-   "description": "Prefix for virtual account numbers."
+   "default": "7",
+   "fieldname": "default_expiry_days",
+   "fieldtype": "Int",
+   "label": "Default Expiry Days",
+   "description": "Number of days after which payment links expire",
+   "min": 1,
+   "max": 365
   },
   {
    "default": "0",
    "fieldname": "allow_guest_checkout",
    "fieldtype": "Check",
-   "label": "Allow Guest Checkout?"
+   "label": "Allow Guest Checkout",
+   "description": "Allow customers to make payments without creating an account"
+  },
+  {
+   "fieldname": "section_webhooks",
+   "fieldtype": "Section Break",
+   "label": "🔗 Webhook Configuration",
+   "collapsible": 0
+  },
+  {
+   "fieldname": "webhook_secret",
+   "fieldtype": "Password",
+   "label": "Webhook Secret",
+   "description": "Secret key for verifying webhook authenticity from Razorpay"
   }
  ],
  "index_web_pages_for_search": 1,

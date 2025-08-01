@@ -1,8 +1,8 @@
 app_name = "razorpay_frappe"
 app_title = "Razorpay Integration"
-app_publisher = "Build With Hussain"
+app_publisher = "AxelGear"
 app_description = "Razorpay Integration for Frappe"
-app_email = "buildwithhussain@gmail.com"
+app_email = "rejithr1995@gmail.com"
 app_license = "mit"
 # required_apps = []
 
@@ -140,9 +140,6 @@ app_include_js = [
 # Hook on document methods and events
 
 doc_events = {
-    "Customer": {
-        "after_insert": "razorpay_frappe.utils.generate_customer_uuid",
-    },
     "Quotation": {
         "on_submit": "razorpay_frappe.quotation_events.handle_quotation_submit",
     },

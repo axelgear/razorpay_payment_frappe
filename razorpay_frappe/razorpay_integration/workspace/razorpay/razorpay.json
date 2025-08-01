@@ -9,15 +9,15 @@
    "label": "Order per day"
   },
   {
-   "chart_name": "Virtual Accounts per day",
-   "label": "Virtual Accounts per day"
-  },
-  {
    "chart_name": "Settlements per day",
    "label": "Settlements per day"
+  },
+  {
+   "chart_name": "Payment Details per day",
+   "label": "Payment Details per day"
   }
  ],
- "content": "[{\"id\":\"header-section\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h3\\\">🚀 Razorpay Integration Dashboard</span>\",\"col\":12}},{\"id\":\"charts-section\",\"type\":\"paragraph\",\"data\":{\"text\":\"<span class=\\\"h5\\\">📊 Analytics Overview</span>\",\"col\":12}},{\"id\":\"chart-1\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Payment Links per day\",\"col\":6}},{\"id\":\"chart-2\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Order per day\",\"col\":6}},{\"id\":\"chart-3\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Virtual Accounts per day\",\"col\":6}},{\"id\":\"chart-4\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Settlements per day\",\"col\":6}},{\"id\":\"quick-actions\",\"type\":\"paragraph\",\"data\":{\"text\":\"<span class=\\\"h5\\\">⚡ Quick Actions</span>\",\"col\":12}},{\"id\":\"quick-action-1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Create Payment Link\",\"col\":3}},{\"id\":\"quick-action-2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Create Virtual Account\",\"col\":3}},{\"id\":\"quick-action-3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Open Settings\",\"col\":3}},{\"id\":\"quick-action-4\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Manual ZohoCliq Notification\",\"col\":3}},{\"id\":\"payment-links-section\",\"type\":\"paragraph\",\"data\":{\"text\":\"<span class=\\\"h5\\\">🔗 Payment Links Management</span>\",\"col\":12}},{\"id\":\"payment-links-list\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Razorpay Payment Link\",\"col\":6}},{\"id\":\"payment-links-create\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Create Payment Link\",\"col\":3}},{\"id\":\"payment-details-list\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Payment Details\",\"col\":3}},{\"id\":\"virtual-accounts-section\",\"type\":\"paragraph\",\"data\":{\"text\":\"<span class=\\\"h5\\\">🏦 Virtual Accounts Management</span>\",\"col\":12}},{\"id\":\"virtual-accounts-list\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Razorpay Virtual Account\",\"col\":8}},{\"id\":\"virtual-accounts-create\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Create Virtual Account\",\"col\":4}},{\"id\":\"settlements-section\",\"type\":\"paragraph\",\"data\":{\"text\":\"<span class=\\\"h5\\\">💰 Settlements & Reconciliation</span>\",\"col\":12}},{\"id\":\"settlements-list\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Razorpay Settlement\",\"col\":6}},{\"id\":\"settlement-payment-entries\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Razorpay Settlement Payment Entry\",\"col\":6}},{\"id\":\"orders-section\",\"type\":\"paragraph\",\"data\":{\"text\":\"<span class=\\\"h5\\\">📋 Orders Management</span>\",\"col\":12}},{\"id\":\"orders-list\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Orders\",\"col\":12}},{\"id\":\"subscriptions-section\",\"type\":\"paragraph\",\"data\":{\"text\":\"<span class=\\\"h5\\\">🔄 Subscriptions Management</span>\",\"col\":12}},{\"id\":\"plans-shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Plans\",\"col\":6}},{\"id\":\"subscriptions-shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Subscriptions\",\"col\":6}},{\"id\":\"notifications-section\",\"type\":\"paragraph\",\"data\":{\"text\":\"<span class=\\\"h5\\\">🔔 Notifications & Communication</span>\",\"col\":12}},{\"id\":\"zohocliq-manual\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Manual ZohoCliq Notification\",\"col\":12}}]",
+ "content": "[{\"id\":\"header-section\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h3\\\">🚀 Razorpay Integration Dashboard</span>\",\"col\":12}},{\"id\":\"charts-section\",\"type\":\"paragraph\",\"data\":{\"text\":\"<span class=\\\"h5\\\">📊 Analytics Overview</span>\",\"col\":12}},{\"id\":\"chart-1\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Payment Links per day\",\"col\":6}},{\"id\":\"chart-2\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Order per day\",\"col\":6}},{\"id\":\"chart-3\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Settlements per day\",\"col\":6}},{\"id\":\"chart-4\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Payment Details per day\",\"col\":6}},{\"id\":\"quick-actions\",\"type\":\"paragraph\",\"data\":{\"text\":\"<span class=\\\"h5\\\">⚡ Quick Actions</span>\",\"col\":12}},{\"id\":\"quick-action-1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Create Payment Link\",\"col\":4}},{\"id\":\"quick-action-2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Open Settings\",\"col\":4}},{\"id\":\"quick-action-3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Manual ZohoCliq Notification\",\"col\":4}},{\"id\":\"payment-links-section\",\"type\":\"paragraph\",\"data\":{\"text\":\"<span class=\\\"h5\\\">🔗 Payment Links Management</span>\",\"col\":12}},{\"id\":\"payment-links-list\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Razorpay Payment Link\",\"col\":6}},{\"id\":\"payment-links-create\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Create Payment Link\",\"col\":3}},{\"id\":\"payment-details-list\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Payment Details\",\"col\":3}},{\"id\":\"settlements-section\",\"type\":\"paragraph\",\"data\":{\"text\":\"<span class=\\\"h5\\\">💰 Settlements & Reconciliation</span>\",\"col\":12}},{\"id\":\"settlements-list\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Razorpay Settlement\",\"col\":6}},{\"id\":\"settlement-payment-entries\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Razorpay Settlement Payment Entry\",\"col\":6}},{\"id\":\"orders-section\",\"type\":\"paragraph\",\"data\":{\"text\":\"<span class=\\\"h5\\\">📋 Orders Management</span>\",\"col\":12}},{\"id\":\"orders-list\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Orders\",\"col\":12}},{\"id\":\"subscriptions-section\",\"type\":\"paragraph\",\"data\":{\"text\":\"<span class=\\\"h5\\\">🔄 Subscriptions Management</span>\",\"col\":12}},{\"id\":\"plans-shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Plans\",\"col\":6}},{\"id\":\"subscriptions-shortcut\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Subscriptions\",\"col\":6}},{\"id\":\"notifications-section\",\"type\":\"paragraph\",\"data\":{\"text\":\"<span class=\\\"h5\\\">🔔 Notifications & Communication</span>\",\"col\":12}},{\"id\":\"zohocliq-manual\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Manual ZohoCliq Notification\",\"col\":12}}]",
  "creation": "2024-05-13 13:47:05.049702",
  "custom_blocks": [],
  "docstatus": 0,
@@ -53,10 +53,10 @@
   },
   {
    "doc_view": "List",
-   "label": "Active Virtual Accounts",
-   "link_to": "Razorpay Virtual Account", 
-   "name": "Active Virtual Accounts",
-   "stats_filter": "[[\"Razorpay Virtual Account\",\"status\",\"=\",\"active\",false]]",
+   "label": "Captured Payments",
+   "link_to": "Razorpay Payment Detail", 
+   "name": "Captured Payments",
+   "stats_filter": "[[\"Razorpay Payment Detail\",\"status\",\"=\",\"captured\",false]]",
    "type": "DocType"
   },
   {
@@ -80,14 +80,6 @@
    "doc_view": "New",
    "label": "Create Payment Link",
    "link_to": "Razorpay Payment Link",
-   "stats_filter": "[]",
-   "type": "DocType"
-  },
-  {
-   "color": "Green",
-   "doc_view": "New",
-   "label": "Create Virtual Account",
-   "link_to": "Razorpay Virtual Account",
    "stats_filter": "[]",
    "type": "DocType"
   },
@@ -122,15 +114,6 @@
    "label": "Payment Details",
    "link_to": "Razorpay Payment Detail",
    "stats_filter": "[[\"Razorpay Payment Detail\",\"status\",\"=\",\"captured\",false]]",
-   "type": "DocType"
-  },
-  {
-   "color": "Blue",
-   "doc_view": "List",
-   "format": "{} Active",
-   "label": "Razorpay Virtual Account",
-   "link_to": "Razorpay Virtual Account",
-   "stats_filter": "[[\"Razorpay Virtual Account\",\"status\",\"=\",\"active\",false]]",
    "type": "DocType"
   },
   {
