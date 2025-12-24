@@ -233,9 +233,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🆘 Support
 
-- **Documentation**: [Link to documentation]
-- **Issues**: [GitHub Issues](https://github.com/your-repo/razorpay_frappe/issues)
-- **Email**: rejithr1995@gmail.com
+- **Issues**: [GitHub Issues](https://github.com/axelgear/razorpay_payment_frappe/issues)
 
 ## 🙏 Acknowledgments
 
