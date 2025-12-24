@@ -351,8 +351,12 @@ def create_payment_link_for_quotation(quotation_name: str, advanced_options: dic
 
         if settings.get('sent_email_for_quotation'):
             email = True
+        else:
+            email = False
         if settings.get("sent_sms_for_quotation"):
             sms = True
+        else:
+            sms = False
 
         client = get_razorpay_client()
 
