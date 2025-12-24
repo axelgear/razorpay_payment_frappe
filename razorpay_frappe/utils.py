@@ -348,7 +348,7 @@ def create_payment_link_for_quotation(quotation_name: str, advanced_options: dic
     try:
         quotation = frappe.get_doc("Quotation", quotation_name)
         settings = frappe.get_single("Razorpay Settings")
-        
+
         if settings.get('sent_email_for_quotation'):
             email = True
         if settings.get("sent_sms_for_quotation"):
@@ -370,7 +370,7 @@ def create_payment_link_for_quotation(quotation_name: str, advanced_options: dic
                 "email": quotation.contact_email or "",
                 "contact": quotation.contact_mobile or "",
             },
-            "notify": {"sms": True, "email": True},
+            "notify": {"sms": sms, "email": email},
             "reminder_enable": True,
             "notes": {
                 "quotation_id": quotation.name,
